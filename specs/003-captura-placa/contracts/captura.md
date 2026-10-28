@@ -9,8 +9,9 @@
 - Confirmacion: solo edit de placa y lookup existente cuando hay conexion.
   Cero llamadas de registro; guardar sigue siendo una accion separada.
 - Si cambia la placa confirmada, descartar cliente, celular, marca, tipo,
-  servicios y sus valores previos antes de consultar; conservar orden y
-  observaciones. Una consulta fallida no debe mezclar vehiculos.
+  servicios y sus valores previos antes de consultar; conservar observaciones.
+  Una consulta fallida no debe mezclar vehiculos. No existe campo de orden editable;
+  el registro envia numeroOrden="0" conforme al contrato 002.
 
 ## Estados
 

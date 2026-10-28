@@ -66,6 +66,15 @@ class IngresoViewModelTest {
         runCurrent()
         assertEquals(IngresoForm(), model.state.form)
         assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertFalse(model.state.reviewRequired)
+        assertEquals("", model.state.pendingNumber)
+        fill(model)
+        model.save()
+        runCurrent()
+        assertEquals(2, source.calls)
+        assertEquals(IngresoForm(), model.state.form)
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertFalse(model.state.reviewRequired)
     }
 
     @Test
@@ -126,12 +135,11 @@ class IngresoViewModelTest {
         val source = FakeRepository()
         val model = model(source)
         runCurrent()
-        model.edit { it.copy(order = "42", observations = "CONSERVAR") }
+        model.edit { it.copy(observations = "CONSERVAR") }
         model.acceptScannedPlate(" aoi012 ")
         runCurrent()
         assertEquals("AOI012", model.state.form.plate)
         assertEquals("AOI012", source.lastLookup)
-        assertEquals("42", model.state.form.order)
         assertEquals("CONSERVAR", model.state.form.observations)
         assertEquals(0, source.calls)
     }
@@ -183,7 +191,6 @@ class IngresoViewModelTest {
         gate.completeExceptionally(IOException())
         runCurrent()
         assertEquals("XYZ789", model.state.form.plate)
-        assertEquals("42", model.state.form.order)
         assertEquals("", model.state.form.customer)
         assertEquals("", model.state.form.phone)
         assertEquals("", model.state.form.brand)
@@ -197,7 +204,7 @@ class IngresoViewModelTest {
     private fun model(source: FakeRepository) = IngresoViewModel(MemorySettings()) { source }
 
     private fun fill(model: IngresoViewModel) {
-        model.edit { it.copy(plate = "ABC123", order = "42") }
+        model.edit { it.copy(plate = "ABC123") }
         model.selectType(3)
         model.toggleService(1)
     }

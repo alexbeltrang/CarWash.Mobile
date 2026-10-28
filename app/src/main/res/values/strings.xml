@@ -19,7 +19,6 @@
     <string name="customer_label">Nombre del cliente</string>
     <string name="phone_label">Celular</string>
     <string name="brand_label">Marca</string>
-    <string name="order_label">N.º de orden *</string>
     <string name="vehicle_section">Vehículo y cliente</string>
     <string name="services_section">Servicios</string>
     <string name="amounts_section">Valores</string>
@@ -58,7 +57,6 @@
     <string name="use_plate">Usar placa</string>
     <string name="torch_on">Encender linterna</string>
     <string name="torch_off">Apagar linterna</string>
-    <string name="required_order">Ingrese el número de orden.</string>
     <string name="required_type">Seleccione un tipo de vehículo.</string>
     <string name="required_services">Seleccione al menos un servicio.</string>
     <string name="invalid_amount">Ingrese un valor no negativo, sin separadores de miles y con hasta dos decimales.</string>

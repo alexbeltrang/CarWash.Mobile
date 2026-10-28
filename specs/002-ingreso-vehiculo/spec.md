@@ -14,7 +14,7 @@ limpia datos del vehiculo previo antes de buscar para evitar mezclas ante fallo.
 
 ### User Story 1 - Registrar ingreso (Priority: P1)
 
-El recepcionista registra placa, tipo, cliente, celular, marca, numero de orden,
+El recepcionista registra placa, tipo, cliente, celular y marca,
 servicios, valor, base de comision y observaciones sin volver al computador.
 
 **Why this priority**: Es la operacion principal del formulario original.
@@ -26,11 +26,14 @@ y guardar; comprobar los datos y confirmacion, sin escribir en la base real.
    solo sus servicios y se reinician seleccion y valores anteriores.
 2. **Given** varios servicios seleccionados, **When** cambia la seleccion,
    **Then** valor y base se recalculan con las tarifas del catalogo; son editables.
-3. **Given** placa, orden, tipo y servicios validos y caja activa, **When** guarda,
+3. **Given** placa, tipo y servicios validos y caja activa, **When** guarda,
    **Then** se registran turno y servicios y se confirma solo al completar todos.
 4. **Given** un campo obligatorio ausente o sin caja activa, **When** guarda,
    **Then** no se inicia el registro y se indica el problema.
 5. **Given** formulario editado, **When** cancela, **Then** limpia ingreso e historial.
+6. **Given** turno y todos sus servicios confirmados por el servidor, **When**
+  finaliza guardar, **Then** limpia el formulario y permite el siguiente ingreso
+  sin mostrar advertencia de registro incompleto.
 
 ### User Story 2 - Buscar por placa (Priority: P2)
 
@@ -74,14 +77,16 @@ El usuario configura y comprueba la direccion del computador que presta el servi
 - Respuesta vacia/404 de placa o historial: estado vacio, no error de conectividad.
 - Cambiar servidor descarta catalogos y formulario anteriores para no mezclar IDs.
 - Un timeout durante guardar no confirma exito ni implica que nada se registro.
+- Un turno visible no garantiza que todos los servicios se confirmaron. Corregir
+  el fallo del servidor, no ocultar HTTP 500 ni declarar exito de forma anticipada.
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: Mostrar todos los campos del formulario original, seleccion multiple
+- **FR-001**: Mostrar los campos del formulario original excepto numero de orden, seleccion multiple
   de servicios y acciones guardar/cancelar.
-- **FR-002**: Placa, numero de orden, tipo real, al menos un servicio y valores
+- **FR-002**: Placa, tipo real, al menos un servicio y valores
   numericos no negativos son obligatorios. Cliente, celular, marca y observaciones
   son opcionales segun las etiquetas del disenador original.
 - **FR-003**: Normalizar placa, cliente, marca y observaciones a mayusculas.
@@ -96,12 +101,14 @@ El usuario configura y comprueba la direccion del computador que presta el servi
 - **FR-010**: Mostrar carga, falta de conexion, caja cerrada, vacios, errores y exito.
 - **FR-011**: Funcionar con teclado, desplazamiento, fuentes del sistema y recreacion
   por rotacion sin perder el formulario durante la vida del proceso.
+- **FR-012**: No mostrar ni solicitar numero de orden. Enviar siempre cero en ese
+  campo al registrar, conservando el contrato existente y sin modificar la base.
 
 ### Key Entities
 
 - **Tipo de vehiculo**: identificador, nombre y marca de eliminacion.
 - **Servicio por tipo**: servicio, tipo, tarifa y base de comision.
-- **Ingreso**: placa, datos opcionales del cliente, orden, valores, caja y servicios.
+- **Ingreso**: placa, datos opcionales del cliente, orden fija en cero, valores, caja y servicios.
 - **Historial**: fecha, placa, tipo, cliente, marca, valor pagado y servicio si existe.
 - **Servidor**: direccion persistida para este dispositivo; sin credenciales nuevas.
 
@@ -109,7 +116,8 @@ El usuario configura y comprueba la direccion del computador que presta el servi
 
 ### Measurable Outcomes
 
-- **SC-001**: Todos los campos de ingreso originales estan disponibles en el movil.
+- **SC-001**: Los campos de ingreso originales excepto numero de orden estan disponibles;
+  el registro envia cero sin solicitarlo al usuario.
 - **SC-002**: La seleccion de servicios produce exactamente la suma de las tarifas
   y bases obtenidas, incluida la eliminacion de una seleccion.
 - **SC-003**: Los escenarios de validacion y caja cerrada producen cero escrituras.

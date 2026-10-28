@@ -79,14 +79,22 @@ class MainActivityTest {
 
     @Test
     fun validSaveUsesFakeRepositoryAndResetsForm() {
+        composeRule.onNodeWithTag("order").assertDoesNotExist()
         fillForm()
         composeRule.onNodeWithTag("save").performClick()
         composeRule.onNodeWithText("Ingreso registrado: T-20261028-001").performScrollTo().assertIsDisplayed()
         composeRule.runOnIdle {
             assertEquals(1, repository.writes)
             assertEquals("ABC123", repository.lastForm?.plate)
-            assertEquals("42", repository.lastForm?.order)
             assertEquals(IngresoForm(), model.state.form)
+            assertNull(settings.pendingTurn)
+        }
+        fillForm()
+        composeRule.onNodeWithTag("save").performClick()
+        composeRule.runOnIdle {
+            assertEquals(2, repository.writes)
+            assertEquals(IngresoForm(), model.state.form)
+            assertFalse(model.state.reviewRequired)
             assertNull(settings.pendingTurn)
         }
     }
@@ -162,7 +170,6 @@ class MainActivityTest {
 
     private fun fillForm() {
         composeRule.onNodeWithTag("plate").performTextInput("abc123")
-        composeRule.onNodeWithTag("order").performScrollTo().performTextInput("42")
         selectAutomobile()
         composeRule.onNodeWithTag("service-1").performScrollTo().performClick()
     }

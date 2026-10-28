@@ -63,7 +63,6 @@ data class IngresoForm(
     val customer: String = "",
     val phone: String = "",
     val brand: String = "",
-    val order: String = "",
     val observations: String = "",
     val typeId: Int? = null,
     val serviceIds: Set<Int> = emptySet(),
@@ -71,7 +70,7 @@ data class IngresoForm(
     val baseValue: String = "0.00",
 )
 
-enum class FormError { PLATE, ORDER, TYPE, SERVICES, VALUE, BASE_VALUE }
+enum class FormError { PLATE, TYPE, SERVICES, VALUE, BASE_VALUE }
 
 fun parseAmount(text: String): BigDecimal? = text.trim()
     .takeIf { it.matches(Regex("[0-9]+([.,][0-9]{1,2})?")) }
@@ -79,7 +78,6 @@ fun parseAmount(text: String): BigDecimal? = text.trim()
 
 fun IngresoForm.errors(): Set<FormError> = buildSet {
     if (plate.isBlank()) add(FormError.PLATE)
-    if (order.isBlank()) add(FormError.ORDER)
     if (typeId == null || typeId <= 0) add(FormError.TYPE)
     if (serviceIds.isEmpty()) add(FormError.SERVICES)
     if (parseAmount(value) == null) add(FormError.VALUE)

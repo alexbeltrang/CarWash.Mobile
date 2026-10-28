@@ -193,17 +193,10 @@ fun IngresoScreen(model: IngresoViewModel) {
                 R.string.customer_label, "customer", editable,
                 capitalization = KeyboardCapitalization.Characters,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                IngresoField(
-                    state.form.phone, { value -> model.edit { it.copy(phone = value) } },
-                    R.string.phone_label, "phone", editable, Modifier.weight(1f), keyboardType = KeyboardType.Phone,
-                )
-                IngresoField(
-                    state.form.order, { value -> model.edit { it.copy(order = value) } },
-                    R.string.order_label, "order", editable, Modifier.weight(1f),
-                    error = FormError.ORDER in state.errors, errorText = R.string.required_order,
-                )
-            }
+            IngresoField(
+                state.form.phone, { value -> model.edit { it.copy(phone = value) } },
+                R.string.phone_label, "phone", editable, keyboardType = KeyboardType.Phone,
+            )
             IngresoField(
                 state.form.brand, { value -> model.edit { it.copy(brand = value.uppercase(Locale.ROOT)) } },
                 R.string.brand_label, "brand", editable, capitalization = KeyboardCapitalization.Characters,

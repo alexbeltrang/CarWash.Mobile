@@ -11,7 +11,9 @@
 - Revision siempre editable y explicita. Heuristica alfanumerica de 5 a 10 caracteres,
   con letras y numeros, solo para sugerir; no cambia validacion manual del ingreso.
 - Conectar confirmacion a edit/lookup existentes; preservar guardado y protecciones.
-- Limpiar datos del vehiculo anterior al confirmar otra placa; conservar orden y notas.
+- Limpiar datos del vehiculo anterior al confirmar otra placa; conservar notas.
+- No mantener orden en estado/UI ni validarla; registro envia numeroOrden="0"
+  con el tipo String existente, sin cambiar servidor o base de datos.
 - Ajustar contraste oscuro e iconos de sistema ante cambio de tema observado en captura.
 - La captura queda ligada al ciclo de vida; cerrar ImageProxy y reconocedor incluso
   en error, salir o recrear. Cancelar descarta resultados sin tocar borrador.

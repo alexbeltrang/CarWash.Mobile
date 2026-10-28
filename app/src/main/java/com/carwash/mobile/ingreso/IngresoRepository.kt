@@ -97,7 +97,7 @@ class ApiIngresoRepository(
                     placa = form.plate.trim().uppercase(Locale.ROOT),
                     fechaHoraIngreso = time.toString(),
                     marca = form.brand.trim().uppercase(Locale.ROOT),
-                    numeroOrden = form.order.trim(),
+                    numeroOrden = "0",
                     valor = requireNotNull(parseAmount(form.value)),
                     valorBaseComision = requireNotNull(parseAmount(form.baseValue)),
                     observaciones = form.observations.trim().uppercase(Locale.ROOT),

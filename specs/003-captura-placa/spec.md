@@ -3,6 +3,8 @@
 **Feature Branch**: Sin crear rama; directorio 003-captura-placa.
 **Created**: 2026-10-28
 **Status**: Implementada y verificada en emulador; precision con placas reales pendiente en celular.
+**Reporte del usuario**: 2026-10-28, la camara del celular leyo correctamente la
+placa; esto no certifica todas las condiciones de luz/distancia del requisito.
 **Input**: Capturar la placa con la camara del celular y continuar con el ingreso
 existente; permitir registro manual cuando no sea legible.
 
@@ -75,7 +77,12 @@ El recepcionista puede escribir la placa sin depender de camara o reconocimiento
 - **FR-010**: Conservar API, reglas, caja activa, servicios, valores y proteccion
   contra doble envio o registro incierto del ingreso existente.
 - **FR-011**: Al confirmar una placa distinta, limpiar datos y servicios del vehiculo
-  anterior antes de consultar; conservar orden y observaciones del ingreso.
+  anterior antes de consultar; conservar observaciones del ingreso.
+- **FR-012**: Tras guardar y confirmar turno y servicios, limpiar el ingreso y
+  permitir el siguiente sin advertencia de envio incompleto; mantener mensajes
+  cuando realmente falla la comunicacion o el servidor.
+- **FR-013**: El ingreso no muestra ni requiere numero de orden; registra ese campo
+  siempre en cero segun el contrato 002, sin modificar la API o base de datos.
 
 ### Key Entities
 
