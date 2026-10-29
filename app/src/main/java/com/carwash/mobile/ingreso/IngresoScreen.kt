@@ -161,6 +161,13 @@ fun IngresoScreen(model: IngresoViewModel) {
             ConnectionStatus(state)
             if (state.loading || state.searching || state.saving) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.notice?.let { NoticeBanner(it) }
+            state.notificationStatus?.let { status ->
+                WhatsAppStatus(
+                    status = status,
+                    canRetry = status == "FAILED" || status == "RETRYING",
+                    onRetry = model::retryWhatsapp,
+                )
+            }
             SectionTitle(R.string.vehicle_section)
             FilledTonalButton(
                 onClick = { keyboard?.hide(); showCapture = true },
@@ -355,12 +362,37 @@ private fun NoticeBanner(notice: Notice) {
         NoticeKind.SAVE_FAILED -> R.string.save_failed
         NoticeKind.REVIEW_REQUIRED -> R.string.review_required
     }
+
     val positive = notice.kind == NoticeKind.SAVED || notice.kind == NoticeKind.NOT_FOUND
     val background = if (positive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer
     val foreground = if (positive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer
     Row(Modifier.fillMaxWidth().background(background).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (notice.kind == NoticeKind.SAVED) Icon(Icons.Default.CheckCircle, null, tint = foreground)
         Text(stringResource(message, notice.detail), color = foreground, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun WhatsAppStatus(status: String, canRetry: Boolean, onRetry: () -> Unit) {
+    val label = when (status) {
+        "NOT_APPLICABLE" -> R.string.whatsapp_not_applicable
+        "PENDING" -> R.string.whatsapp_pending
+        "RETRYING" -> R.string.whatsapp_retrying
+        "ACCEPTED" -> R.string.whatsapp_accepted
+        "DELIVERED" -> R.string.whatsapp_delivered
+        "FAILED" -> R.string.whatsapp_failed
+        else -> R.string.whatsapp_unknown
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.whatsapp_status_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
+            if (canRetry) {
+                TextButton(onClick = onRetry) {
+                    Text(stringResource(R.string.whatsapp_retry))
+                }
+            }
+        }
     }
 }
 

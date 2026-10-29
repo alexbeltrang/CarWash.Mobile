@@ -45,6 +45,8 @@ data class IngresoState(
     val searched: Boolean = false,
     val errors: Set<FormError> = emptySet(),
     val notice: Notice? = null,
+    val notificationTurnId: Int? = null,
+    val notificationStatus: String? = null,
 )
 
 class IngresoViewModel(
@@ -202,7 +204,14 @@ class IngresoViewModel(
                 state = state.copy(
                     form = IngresoForm(), history = emptyList(), searched = false,
                     saving = false, reviewRequired = false, pendingNumber = "",
-                    notice = Notice(NoticeKind.SAVED, saved.numeroTurno.orEmpty()),
+                    notificationTurnId = saved.idTurno,
+                    notificationStatus = saved.notificationStatus,
+                    notice = Notice(
+                        NoticeKind.SAVED,
+                        listOf(saved.numeroTurno.orEmpty(), saved.notificationStatus?.let { "WhatsApp: $it" })
+                            .filterNot { it.isNullOrBlank() }
+                            .joinToString(" - "),
+                    ),
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -218,6 +227,27 @@ class IngresoViewModel(
                     saving = false, reviewRequired = uncertain, pendingNumber = number,
                     notice = Notice(if (uncertain) NoticeKind.REVIEW_REQUIRED else NoticeKind.SAVE_FAILED, number),
                 )
+            }
+        }
+    }
+
+    fun retryWhatsapp() {
+        val idTurno = state.notificationTurnId ?: return
+        val source = repository ?: return
+        viewModelScope.launch {
+            try {
+                val result = source.retryWhatsapp(idTurno) ?: return@launch
+                state = state.copy(notificationStatus = result.estado, notice = Notice(
+                    NoticeKind.SAVED,
+                    "$idTurno - WhatsApp: ${result.estado}",
+                ))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                state = state.copy(notificationStatus = "FAILED", notice = Notice(
+                    NoticeKind.SAVED,
+                    "$idTurno - WhatsApp: FAILED",
+                ))
             }
         }
     }

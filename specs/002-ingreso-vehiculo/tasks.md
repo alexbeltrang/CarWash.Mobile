@@ -13,6 +13,7 @@
 - [ ] T011 Verificar conexion desde celular fisico en la misma Wi-Fi.
 - [ ] T012 Revisar visualmente rotacion, modo oscuro y fuente grande del nuevo formulario.
 - [ ] T013 Usuario revisa perfil de red confiable y permisos necesarios de firewall privado.
+- [x] T014 Corregir desfase de zona horaria usando la fecha operativa de la API.
 
 ## Evidencia
 
@@ -43,3 +44,5 @@
 - Wi-Fi clasificada Publica en Windows. No se modifico el perfil ni el firewall;
 	T013 requiere revision/accion manual del usuario, con elevacion si corresponde.
 - T011 requiere celular fisico y revision de T013; la conexion emulada no lo sustituye.
+- La API devuelve `X-Server-Date` en `ByFecha` sin parámetro; el móvil usa esa fecha
+  para evitar generar turnos del día UTC cuando el servidor aún está en el día local.

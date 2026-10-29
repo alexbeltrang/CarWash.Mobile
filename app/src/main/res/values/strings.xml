@@ -69,4 +69,13 @@
     <string name="saved_ingreso">Ingreso registrado: %1$s</string>
     <string name="save_failed">No se pudo iniciar el registro. Sus datos se conservaron.</string>
     <string name="review_required">Revise el turno %1$s en el computador. El envío quedó incompleto o sin confirmar; no se volverá a enviar desde este formulario.</string>
+    <string name="whatsapp_status_title">Estado de WhatsApp</string>
+    <string name="whatsapp_not_applicable">No aplica: faltan datos requeridos para la plantilla.</string>
+    <string name="whatsapp_pending">Pendiente de envío.</string>
+    <string name="whatsapp_retrying">Pendiente de reintento.</string>
+    <string name="whatsapp_accepted">Mensaje aceptado por WhatsApp.</string>
+    <string name="whatsapp_delivered">Mensaje entregado.</string>
+    <string name="whatsapp_failed">No se pudo enviar el mensaje.</string>
+    <string name="whatsapp_unknown">Estado no disponible.</string>
+    <string name="whatsapp_retry">Reintentar envío</string>
 </resources>

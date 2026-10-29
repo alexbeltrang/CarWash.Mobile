@@ -12,6 +12,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 import java.io.IOException
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -34,7 +35,7 @@ interface CarWashApi {
     suspend fun history(@Query("placa") plate: String): Response<List<HistoryEntry>>
 
     @GET("api/TurnosDiarios/ByFecha")
-    suspend fun daily(@Query("fecha") date: String): List<DailyTurn>
+    suspend fun daily(@Query("fecha") date: String? = null): Response<List<DailyTurn>>
 
     @POST("api/TurnosDiarios/RegistrarTurnoDiario")
     suspend fun createDaily(@Body daily: DailyTurn): DailyTurn
@@ -47,12 +48,22 @@ interface CarWashApi {
 
     @POST("api/TurnoServicios/RegistrarTurnoServicio")
     suspend fun createTurnService(@Body service: TurnServiceRequest): Response<Unit>
+
+    @POST("api/Turnos/{idTurno}/notificacion-whatsapp")
+    suspend fun notifyWhatsapp(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
+
+    @GET("api/Turnos/{idTurno}/notificacion-whatsapp")
+    suspend fun whatsappStatus(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
+
+    @POST("api/Turnos/{idTurno}/notificacion-whatsapp/reintentar")
+    suspend fun retryWhatsapp(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
 }
 
 interface IngresoRepository {
     suspend fun load(): Catalog
     suspend fun lookup(plate: String): PlateLookup
     suspend fun register(form: IngresoForm, beforeWrite: (String) -> Unit): SavedTurn
+    suspend fun retryWhatsapp(idTurno: Int): WhatsAppNotificationResult? = null
 }
 
 class CashClosedException : IOException()
@@ -73,6 +84,9 @@ class ApiIngresoRepository(
         history = api.history(plate).optional().orEmpty(),
     )
 
+    override suspend fun retryWhatsapp(idTurno: Int): WhatsAppNotificationResult? =
+        api.retryWhatsapp(idTurno).optional()
+
     override suspend fun register(form: IngresoForm, beforeWrite: (String) -> Unit): SavedTurn {
         require(form.errors().isEmpty())
         var started = false
@@ -81,8 +95,11 @@ class ApiIngresoRepository(
             val cash = api.cash().optional()?.takeIf { it.estado && it.idCaja > 0 }
                 ?: throw CashClosedException()
             val time = now()
-            val date = time.toLocalDate()
-            val existing = api.daily(date.toString()).firstOrNull()
+            val dailyResponse = api.daily().requireBody()
+            val date = dailyResponse.headers()["X-Server-Date"]
+                ?.let { LocalDate.parse(it) }
+                ?: time.toLocalDate()
+            val existing = dailyResponse.body().orEmpty().firstOrNull()
             val next = Math.addExact(existing?.consecutivo ?: 0, 1)
             number = "T-${date.format(DateTimeFormatter.BASIC_ISO_DATE)}-${String.format(Locale.ROOT, "%03d", next)}"
             val daily = DailyTurn(existing?.id ?: 0, date.atStartOfDay().toString(), next)
@@ -109,7 +126,8 @@ class ApiIngresoRepository(
             for (serviceId in form.serviceIds) {
                 api.createTurnService(TurnServiceRequest(serviceId, saved.idTurno)).requireSuccess()
             }
-            return saved
+            val notification = runCatching { api.notifyWhatsapp(saved.idTurno).optional() }.getOrNull()
+            return saved.copy(notificationStatus = notification?.estado)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (closed: CashClosedException) {
@@ -143,4 +161,9 @@ private fun <Value> Response<Value>.optional(): Value? = when {
 
 private fun Response<*>.requireSuccess() {
     if (!isSuccessful) throw retrofit2.HttpException(this)
+}
+
+private fun <Value> Response<Value>.requireBody(): Response<Value> {
+    if (!isSuccessful) throw retrofit2.HttpException(this)
+    return this
 }

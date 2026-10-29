@@ -10,6 +10,8 @@
 - INTERNET y HTTP local necesarios para la API existente; validar URL de red local
   o HTTPS sin credenciales embebidas. No registrar cuerpos HTTP en logs.
 - Emulador: 10.0.2.2:5197. Celular: IP LAN/nombre del servidor configurable.
+- El consecutivo y la fecha del turno usan la fecha operativa que informa la API,
+  no la zona horaria local del dispositivo.
 - Tras autorizacion explicita, agregar perfil wifi a launchSettings de la API
   externa y reiniciar su instancia; no cambiar endpoints, reglas ni datos.
   Lecturas reales para integracion; guardados solo contra MockWebServer.

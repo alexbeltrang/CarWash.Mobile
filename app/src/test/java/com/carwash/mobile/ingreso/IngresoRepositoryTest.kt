@@ -112,6 +112,28 @@ class IngresoRepositoryTest {
     }
 
     @Test
+    fun usesServerOperationalDateInsteadOfDeviceDate() = runTest {
+        respond(200, """{"idCaja":30,"estado":true}""")
+        server.enqueue(MockResponse().setResponseCode(200)
+            .setHeader("Content-Type", "application/json")
+            .setHeader("X-Server-Date", "2026-10-27")
+            .setBody("[]"))
+        respond(201, """{"id":5,"fecha":"2026-10-27T00:00:00","consecutivo":1}""")
+        respond(201, """{"idTurno":123,"numeroTurno":"T-20261027-001"}""")
+        respond(201, "{}")
+
+        repository.register(valid.copy(serviceIds = setOf(1))) { }
+
+        server.takeRequest()
+        server.takeRequest()
+        val dailyRequest = server.takeRequest()
+        assertEquals("POST", dailyRequest.method)
+        val daily = com.google.gson.JsonParser.parseString(dailyRequest.body.readUtf8()).asJsonObject
+        assertEquals("2026-10-27T00:00", daily["fecha"].asString)
+        assertEquals(1, daily["consecutivo"].asInt)
+    }
+
+    @Test
     fun fullCreatedResponsesCompleteRegistration() = runTest {
         respond(200, """{"idCaja":30,"estado":true}""")
         respond(200, """[{"id":9,"fecha":"2026-10-28T00:00:00","consecutivo":7}]""")

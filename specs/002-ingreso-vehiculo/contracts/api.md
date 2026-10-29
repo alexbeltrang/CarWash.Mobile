@@ -21,12 +21,16 @@ Confirmar una lectura no inicia la secuencia de escrituras.
   fechaHoraIngreso, nombreCliente, placa, tipoVehiculo, valorPagado, marca}.
   404 equivale a historial vacio. Este servidor no entrega servicio; mostrarlo
   solo si aparece, sin inventar ni consultar otros registros.
-- GET `/api/TurnosDiarios/ByFecha?fecha=yyyy-MM-dd`: lista de {id, fecha, consecutivo}.
+- GET `/api/TurnosDiarios/ByFecha?fecha=yyyy-MM-dd`: lista de {id, fecha,
+  consecutivo}. La consulta sin `fecha` usa la fecha operativa del servidor y
+  devuelve `X-Server-Date: yyyy-MM-dd`; el móvil debe usar esa fecha para el
+  consecutivo y `fechaHoraIngreso`, evitando diferencias de zona horaria.
 
 ## Escrituras existentes
 
 1. Reconsultar caja; si no existe no escribir.
-2. Consultar consecutivo del dia local, usar primero como el formulario original.
+2. Consultar el consecutivo del día operativo del servidor, no el día local del
+   dispositivo, usando `X-Server-Date` de la consulta sin `fecha`.
 3. Sin fila: POST `/api/TurnosDiarios/RegistrarTurnoDiario` con
    {id:0, fecha: fecha local a medianoche, consecutivo:1}; devuelve 201 y entidad.
 4. Con fila: PUT `/api/TurnosDiarios/ActualizarTurnoDiario/{id}` con id, fecha

@@ -37,7 +37,17 @@ data class HistoryEntry(
 
 data class PlateLookup(val vehicle: VehicleInfo?, val history: List<HistoryEntry>)
 data class DailyTurn(val id: Int = 0, val fecha: String, val consecutivo: Int)
-data class SavedTurn(val idTurno: Int, val numeroTurno: String?)
+data class SavedTurn(
+    val idTurno: Int,
+    val numeroTurno: String?,
+    val notificationStatus: String? = null,
+)
+
+data class WhatsAppNotificationResult(
+    val idTurno: Int,
+    val estado: String,
+    val accion: String,
+)
 data class TurnServiceRequest(val idServicios: Int, val idTurno: Int, val isDeleted: Boolean = false)
 
 data class TurnRequest(

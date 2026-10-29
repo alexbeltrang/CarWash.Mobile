@@ -103,6 +103,8 @@ El usuario configura y comprueba la direccion del computador que presta el servi
   por rotacion sin perder el formulario durante la vida del proceso.
 - **FR-012**: No mostrar ni solicitar numero de orden. Enviar siempre cero en ese
   campo al registrar, conservando el contrato existente y sin modificar la base.
+- **FR-013**: Usar la fecha operativa informada por la API para generar el turno
+  y el consecutivo, sin depender de la zona horaria del dispositivo.
 
 ### Key Entities
 
