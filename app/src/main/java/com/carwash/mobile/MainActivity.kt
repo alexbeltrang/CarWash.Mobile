@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
                             login.logout()
                         })
                     } else {
-                        IngresoScreen(model, onOpenVehicles = { showVehicles = true })
+                        IngresoScreen(model, onOpenVehicles = { showVehicles = true }, onLogout = { login.logout() })
                     }
                 }
             }

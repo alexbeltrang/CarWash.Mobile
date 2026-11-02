@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -84,7 +85,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null) {
+fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null, onLogout: (() -> Unit)? = null) {
     val state = model.state
     val editable = !state.loading && !state.saving && !state.reviewRequired
     // Los datos del vehículo se muestran solo después de buscar la placa.
@@ -130,6 +131,9 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null)
                         model.connect(state.serverUrl)
                     }
                     ToolButton(Icons.Default.Settings, R.string.connection, editable) { showConnection = true }
+                    if (onLogout != null) {
+                        ToolButton(Icons.AutoMirrored.Filled.ExitToApp, R.string.logout, editable) { onLogout() }
+                    }
                 },
             )
         },
