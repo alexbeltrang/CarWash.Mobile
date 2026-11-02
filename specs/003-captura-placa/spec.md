@@ -86,7 +86,7 @@ El recepcionista puede escribir la placa sin depender de camara o reconocimiento
 
 ### Key Entities
 
-- **Captura temporal**: imagen solo en memoria durante reconocimiento.
+- **Lectura automatica**: con la camara abierta se analiza la vista previa y, si una placa de formato valido se lee en dos cuadros seguidos, pasa a revision; el boton Capturar sigue disponible.`n- **Captura temporal**: imagen solo en memoria durante reconocimiento.
 - **Sugerencia de placa**: texto candidato, no validacion legal ni certeza de lectura.
 - **Placa confirmada**: texto revisado que alimenta la placa del ingreso existente.
 

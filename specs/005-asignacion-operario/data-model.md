@@ -19,7 +19,7 @@ Transiciones: sin operario → asignado (asignar) → asignado a otro (reasignar
 ## Usuario (`Usuarios`) y Perfil (`Perfiles`)
 Existentes. `PerfilId` determina si es Administrador.
 
-## Estado de sesión (solo memoria en la app)
+## Estado de sesión (recordado en la app hasta cerrar sesión; nunca incluye contraseña)
 `IdUser`, `DisplayName`, `PerfilId`, `esAdministrador`. Se descarta al cerrar la app. No se guarda contraseña.
 
 ## Reglas de validación

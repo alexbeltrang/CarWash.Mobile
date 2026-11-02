@@ -17,9 +17,12 @@ data class LoginState(
     val session: Session? = null,
 )
 
-// La sesión vive solo en memoria: no se persiste usuario, contraseña ni sesión.
-class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
-    var state by mutableStateOf(LoginState())
+// Se recuerda la sesión (sin usuario ni contraseña) hasta que se cierre sesión.
+class LoginViewModel(
+    private val repository: AuthRepository,
+    private val store: SessionStore = NoSessionStore,
+) : ViewModel() {
+    var state by mutableStateOf(LoginState(session = store.load()))
         private set
 
     fun updateUser(value: String) { state = state.copy(userName = value, error = null) }
@@ -35,12 +38,18 @@ class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
         state = current.copy(loading = true, error = null)
         viewModelScope.launch {
             state = when (val outcome = repository.login(current.userName, current.password)) {
-                is LoginOutcome.Success -> LoginState(session = outcome.session)
+                is LoginOutcome.Success -> {
+                    store.save(outcome.session)
+                    LoginState(session = outcome.session)
+                }
                 LoginOutcome.BadCredentials -> state.copy(loading = false, password = "", error = LoginError.BAD_CREDENTIALS)
                 LoginOutcome.Unreachable -> state.copy(loading = false, error = LoginError.UNREACHABLE)
             }
         }
     }
 
-    fun logout() { state = LoginState() }
+    fun logout() {
+        store.save(null)
+        state = LoginState()
+    }
 }

@@ -201,6 +201,12 @@ fun PlateCaptureScreen(onConfirm: (String) -> Unit, onManual: () -> Unit, onCanc
                     )
                     if (!processing) Box(Modifier.align(Alignment.Center).fillMaxWidth(.85f).aspectRatio(3.2f)
                         .border(2.dp, Color.White, RoundedCornerShape(8.dp)))
+                    if (ready && !processing) Text(
+                        stringResource(R.string.auto_read_hint),
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp).testTag("autoReadHint"),
+                    )
                     if (processing || !ready) {
                         Surface(Modifier.align(Alignment.Center), shape = RoundedCornerShape(8.dp)) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,

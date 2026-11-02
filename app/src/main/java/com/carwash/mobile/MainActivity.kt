@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.carwash.mobile.asignacion.ApiAsignacionRepository
 import com.carwash.mobile.asignacion.AsignacionScreen
 import com.carwash.mobile.asignacion.AsignacionViewModel
+import com.carwash.mobile.auth.AndroidSessionStore
 import com.carwash.mobile.auth.ApiAuthRepository
 import com.carwash.mobile.auth.LoginScreen
 import com.carwash.mobile.auth.LoginViewModel
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             val login: LoginViewModel = viewModel(factory = viewModelFactory {
-                initializer { LoginViewModel(ApiAuthRepository({ listOf(settings.serverUrl, settings.backupUrl) })) }
+                initializer { LoginViewModel(ApiAuthRepository({ listOf(settings.serverUrl, settings.backupUrl) }), AndroidSessionStore(applicationContext)) }
             })
             val session = login.state.session
             CarWashTheme {

@@ -1,7 +1,7 @@
 # Research: Asignación de operario
 
 ## D1. Inicio de sesión
-- **Decision**: Reutilizar `POST api/auth/login`. La app cifra usuario y contraseña con el mismo algoritmo del WinForm (RC2-CBC, relleno PKCS7, Base64) antes de enviarlos. La sesión (`IdUser`, `DisplayName`, `PerfilId`) vive solo en memoria.
+- **Decision**: Reutilizar `POST api/auth/login`. La app cifra usuario y contraseña con el mismo algoritmo del WinForm (RC2-CBC, relleno PKCS7, Base64) antes de enviarlos. La sesión (`IdUser`, `DisplayName`, `PerfilId`) se recuerda en el dispositivo (sin usuario ni contraseña) hasta cerrar sesión, para no pedir el acceso al volver a la app.
 - **Rationale**: El API compara los textos cifrados; no se inventa autenticación nueva y el instalador ya crea usuarios compatibles.
 - **Alternatives**: Endpoint nuevo con texto plano (rechazado: contraseña en claro por HTTP); PIN local (rechazado en la clarificación).
 - **Riesgos a verificar primero**: (1) VERIFICADO en un teléfono Android 16: `Cipher.getInstance("RC2/CBC/PKCS7Padding")` lanza `NoSuchAlgorithmException`. Se implementó RC2-CBC en Kotlin puro (`auth/CredentialCipher.kt`, sin dependencias nuevas), validado con vectores generados en .NET 9 (clave efectiva de 56 bits). (2) La clave y el IV del cifrado quedan dentro del APK; el cifrado es ofuscación, no protección real. Se acepta por compatibilidad y se recomienda a futuro tokens con HTTPS.

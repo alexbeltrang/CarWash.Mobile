@@ -54,6 +54,7 @@
     <string name="capture_plate">Capturar placa</string>
     <string name="review_plate">Revisar placa</string>
     <string name="take_photo">Capturar</string>
+    <string name="auto_read_hint">Enfoque la placa: se leerá automáticamente</string>
     <string name="manual_plate">Ingreso manual</string>
     <string name="opening_camera">Abriendo cámara</string>
     <string name="reading_plate">Leyendo placa</string>

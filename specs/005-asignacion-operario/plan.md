@@ -15,7 +15,7 @@ permanecen en el WinForm.
 
 **Language/Version**: Kotlin/JVM 17 (Android); C#/.NET 9 (API existente)
 **Primary Dependencies**: Jetpack Compose, Retrofit/Gson (ya presentes); ASP.NET Core, EF Core SQLite (API)
-**Storage**: SQLite existente de CarWashApi (`Turnos`, `Operarios`, `Usuarios`); la app no persiste sesión ni credenciales
+**Storage**: SQLite existente de CarWashApi (`Turnos`, `Operarios`, `Usuarios`); la app no persiste credenciales; recuerda la sesión (IdUser, nombre, perfil) hasta cerrar sesión
 **Testing**: JUnit/MockWebServer en la app; pruebas Compose instrumentadas; pruebas de controlador del API sobre SQLite temporal
 **Target Platform**: Android API 26+ y API en Windows (red local, puerto 5197)
 **Project Type**: Aplicación móvil + API web
