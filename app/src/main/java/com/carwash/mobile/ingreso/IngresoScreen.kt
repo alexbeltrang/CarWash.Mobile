@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +64,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -82,9 +84,11 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IngresoScreen(model: IngresoViewModel) {
+fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null) {
     val state = model.state
     val editable = !state.loading && !state.saving && !state.reviewRequired
+    // Los datos del vehículo se muestran solo después de buscar la placa.
+    val showDetails = state.searched || state.reviewRequired
     var showConnection by rememberSaveable { mutableStateOf(state.serverUrl.isBlank()) }
     var showClear by rememberSaveable { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -119,6 +123,9 @@ fun IngresoScreen(model: IngresoViewModel) {
                     }
                 },
                 actions = {
+                    if (onOpenVehicles != null) {
+                        ToolButton(Icons.AutoMirrored.Filled.List, R.string.vehicles_open, editable) { onOpenVehicles() }
+                    }
                     ToolButton(Icons.Default.Refresh, R.string.refresh, !state.loading && !state.saving) {
                         model.connect(state.serverUrl)
                     }
@@ -142,12 +149,16 @@ fun IngresoScreen(model: IngresoViewModel) {
                     }
                     Button(
                         onClick = { keyboard?.hide(); model.save() },
-                        enabled = editable && state.connected && !state.searching,
+                        enabled = editable && state.connected && !state.searching && showDetails,
                         modifier = Modifier.testTag("save"),
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(8.dp))
-                        Text(stringResource(if (state.saving) R.string.saving else R.string.save))
+                        Text(stringResource(when {
+                            state.saving -> R.string.saving
+                            state.editingTurnId != null -> R.string.update
+                            else -> R.string.save
+                        }))
                     }
                 }
             }
@@ -162,10 +173,14 @@ fun IngresoScreen(model: IngresoViewModel) {
             if (state.loading || state.searching || state.saving) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.notice?.let { NoticeBanner(it) }
             state.notificationStatus?.let { status ->
-                WhatsAppStatus(
+                LaunchedEffect(status) {
+                    delay(10_000)
+                    model.clearEmailStatus()
+                }
+                EmailStatus(
                     status = status,
                     canRetry = status == "FAILED" || status == "RETRYING",
-                    onRetry = model::retryWhatsapp,
+                    onRetry = model::retryEmail,
                 )
             }
             SectionTitle(R.string.vehicle_section)
@@ -194,77 +209,88 @@ fun IngresoScreen(model: IngresoViewModel) {
                     modifier = Modifier.padding(top = 8.dp).size(52.dp).testTag("lookup"),
                 ) { Icon(Icons.Default.Search, stringResource(R.string.search_plate)) }
             }
-            VehicleTypeMenu(state, editable && state.connected, model::selectType)
-            IngresoField(
-                state.form.customer, { value -> model.edit { it.copy(customer = value.uppercase(Locale.ROOT)) } },
-                R.string.customer_label, "customer", editable,
-                capitalization = KeyboardCapitalization.Characters,
-            )
-            IngresoField(
-                state.form.phone, { value -> model.edit { it.copy(phone = value) } },
-                R.string.phone_label, "phone", editable, keyboardType = KeyboardType.Phone,
-            )
-            IngresoField(
-                state.form.brand, { value -> model.edit { it.copy(brand = value.uppercase(Locale.ROOT)) } },
-                R.string.brand_label, "brand", editable, capitalization = KeyboardCapitalization.Characters,
-            )
+            if (showDetails) {
+                VehicleTypeMenu(state, editable && state.connected, model::selectType)
+                IngresoField(
+                    state.form.customer, { value -> model.edit { it.copy(customer = value.uppercase(Locale.ROOT)) } },
+                    R.string.customer_label, "customer", editable,
+                    capitalization = KeyboardCapitalization.Characters,
+                )
+                IngresoField(
+                    state.form.phone, { value -> model.edit { it.copy(phone = value) } },
+                    R.string.phone_label, "phone", editable, keyboardType = KeyboardType.Phone,
+                )
+                IngresoField(
+                    state.form.email, { value -> model.edit { it.copy(email = value) } },
+                    R.string.email_label, "email", editable, keyboardType = KeyboardType.Email,
+                    error = FormError.EMAIL in state.errors, errorText = R.string.invalid_email,
+                )
+                IngresoField(
+                    state.form.brand, { value -> model.edit { it.copy(brand = value.uppercase(Locale.ROOT)) } },
+                    R.string.brand_label, "brand", editable, capitalization = KeyboardCapitalization.Characters,
+                )
 
-            SectionTitle(R.string.services_section)
-            val services = state.catalog.services.filter { it.idTipoVehiculo == state.form.typeId }
-            if (services.isEmpty()) {
-                Text(stringResource(if (state.form.typeId == null) R.string.no_type else R.string.no_services),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Column {
-                services.forEach { service ->
-                    Row(
-                        Modifier.fillMaxWidth().testTag("service-${service.idServicio}")
-                            .toggleable(
-                                value = service.idServicio in state.form.serviceIds,
-                                enabled = editable, role = Role.Checkbox,
-                                onValueChange = { model.toggleService(service.idServicio) },
-                            ).padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Checkbox(checked = service.idServicio in state.form.serviceIds, onCheckedChange = null, enabled = editable)
-                        Column(Modifier.weight(1f)) {
-                            Text(service.nombre, style = MaterialTheme.typography.bodyLarge)
-                            Text(money(service.precio ?: BigDecimal.ZERO), style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    HorizontalDivider()
+                SectionTitle(R.string.services_section)
+                val services = state.catalog.services.filter { it.idTipoVehiculo == state.form.typeId }
+                if (services.isEmpty()) {
+                    Text(stringResource(if (state.form.typeId == null) R.string.no_type else R.string.no_services),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
-            if (FormError.SERVICES in state.errors) Text(stringResource(R.string.required_services), color = MaterialTheme.colorScheme.error)
+                Column {
+                    services.forEach { service ->
+                        Row(
+                            Modifier.fillMaxWidth().testTag("service-${service.idServicio}")
+                                .toggleable(
+                                    value = service.idServicio in state.form.serviceIds,
+                                    enabled = editable, role = Role.Checkbox,
+                                    onValueChange = { model.toggleService(service.idServicio) },
+                                ).padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Checkbox(checked = service.idServicio in state.form.serviceIds, onCheckedChange = null, enabled = editable)
+                            Column(Modifier.weight(1f)) {
+                                Text(service.nombre, style = MaterialTheme.typography.bodyLarge)
+                                Text(money(service.precio ?: BigDecimal.ZERO), style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        HorizontalDivider()
+                    }
+                }
+                if (FormError.SERVICES in state.errors) Text(stringResource(R.string.required_services), color = MaterialTheme.colorScheme.error)
 
-            SectionTitle(R.string.amounts_section)
-            IngresoField(
-                state.form.value, { value -> model.edit { it.copy(value = value) } },
-                R.string.value_label, "value", editable, keyboardType = KeyboardType.Decimal,
-                error = FormError.VALUE in state.errors, errorText = R.string.invalid_amount,
-            )
-            IngresoField(
-                state.form.baseValue, { value -> model.edit { it.copy(baseValue = value) } },
-                R.string.base_label, "baseValue", editable, keyboardType = KeyboardType.Decimal,
-                error = FormError.BASE_VALUE in state.errors, errorText = R.string.invalid_amount,
-            )
-            OutlinedTextField(
-                value = state.form.observations,
-                onValueChange = { value -> model.edit { it.copy(observations = value.uppercase(Locale.ROOT)) } },
-                modifier = Modifier.fillMaxWidth().testTag("observations"), enabled = editable,
-                label = { Text(stringResource(R.string.observations_label)) }, minLines = 3,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-            )
-            if (state.searched) HistorySection(state.history)
+                SectionTitle(R.string.amounts_section)
+                IngresoField(
+                    state.form.value, { value -> model.edit { it.copy(value = value) } },
+                    R.string.value_label, "value", editable, keyboardType = KeyboardType.Decimal,
+                    error = FormError.VALUE in state.errors, errorText = R.string.invalid_amount,
+                )
+                IngresoField(
+                    state.form.baseValue, { value -> model.edit { it.copy(baseValue = value) } },
+                    R.string.base_label, "baseValue", editable, keyboardType = KeyboardType.Decimal,
+                    error = FormError.BASE_VALUE in state.errors, errorText = R.string.invalid_amount,
+                )
+                OutlinedTextField(
+                    value = state.form.observations,
+                    onValueChange = { value -> model.edit { it.copy(observations = value.uppercase(Locale.ROOT)) } },
+                    modifier = Modifier.fillMaxWidth().testTag("observations"), enabled = editable,
+                    label = { Text(stringResource(R.string.observations_label)) }, minLines = 3,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                )
+                if (state.searched) HistorySection(state.history)
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
 
-    if (showConnection) ConnectionDialog(state, onDismiss = { showConnection = false }) { url ->
+    if (showConnection) ConnectionDialog(
+        state,
+        onDismiss = { showConnection = false },
+        onTest = { url, backup -> keyboard?.hide(); model.testConnection(url, backup) },
+    ) { url, backup ->
         keyboard?.hide()
-        model.connect(url)
+        model.connect(url, backup)
         showConnection = false
     }
     if (showClear) {
@@ -286,8 +312,12 @@ private fun ConnectionStatus(state: IngresoState) {
             Icon(if (state.connected) Icons.Default.Wifi else Icons.Default.WifiOff, null,
                 tint = if (state.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(18.dp))
-            Text(stringResource(when { state.loading -> R.string.connecting; state.connected -> R.string.connected; else -> R.string.disconnected }),
-                style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(when {
+                state.loading -> R.string.connecting
+                state.connected && state.usingBackup -> R.string.connected_backup
+                state.connected -> R.string.connected
+                else -> R.string.disconnected
+            }), style = MaterialTheme.typography.labelLarge)
         }
         if (state.connected) {
             Text(stringResource(if (state.catalog.cash != null) R.string.cash_open else R.string.cash_closed),
@@ -361,9 +391,11 @@ private fun NoticeBanner(notice: Notice) {
         NoticeKind.SAVED -> R.string.saved_ingreso
         NoticeKind.SAVE_FAILED -> R.string.save_failed
         NoticeKind.REVIEW_REQUIRED -> R.string.review_required
+        NoticeKind.IN_PROCESS -> R.string.in_process_loaded
+        NoticeKind.UPDATED -> R.string.updated_ingreso
     }
 
-    val positive = notice.kind == NoticeKind.SAVED || notice.kind == NoticeKind.NOT_FOUND
+    val positive = notice.kind in setOf(NoticeKind.SAVED, NoticeKind.NOT_FOUND, NoticeKind.IN_PROCESS, NoticeKind.UPDATED)
     val background = if (positive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer
     val foreground = if (positive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer
     Row(Modifier.fillMaxWidth().background(background).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -373,23 +405,23 @@ private fun NoticeBanner(notice: Notice) {
 }
 
 @Composable
-private fun WhatsAppStatus(status: String, canRetry: Boolean, onRetry: () -> Unit) {
+private fun EmailStatus(status: String, canRetry: Boolean, onRetry: () -> Unit) {
     val label = when (status) {
-        "NOT_APPLICABLE" -> R.string.whatsapp_not_applicable
-        "PENDING" -> R.string.whatsapp_pending
-        "RETRYING" -> R.string.whatsapp_retrying
-        "ACCEPTED" -> R.string.whatsapp_accepted
-        "DELIVERED" -> R.string.whatsapp_delivered
-        "FAILED" -> R.string.whatsapp_failed
-        else -> R.string.whatsapp_unknown
+        "NOT_APPLICABLE" -> R.string.email_not_applicable
+        "PENDING" -> R.string.email_pending
+        "RETRYING" -> R.string.email_retrying
+        "ACCEPTED" -> R.string.email_accepted
+        "DELIVERED" -> R.string.email_delivered
+        "FAILED" -> R.string.email_failed
+        else -> R.string.email_unknown
     }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.whatsapp_status_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.email_status_title), style = MaterialTheme.typography.titleSmall)
             Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
             if (canRetry) {
                 TextButton(onClick = onRetry) {
-                    Text(stringResource(R.string.whatsapp_retry))
+                    Text(stringResource(R.string.email_retry))
                 }
             }
         }
@@ -409,28 +441,70 @@ private fun ToolButton(icon: ImageVector, @StringRes label: Int, enabled: Boolea
 }
 
 @Composable
-private fun ConnectionDialog(state: IngresoState, onDismiss: () -> Unit, onConnect: (String) -> Unit) {
+private fun ConnectionDialog(
+    state: IngresoState,
+    onDismiss: () -> Unit,
+    onTest: (String, String) -> Unit,
+    onConnect: (String, String) -> Unit,
+) {
     var url by rememberSaveable { mutableStateOf(state.serverUrl) }
+    var backup by rememberSaveable { mutableStateOf(state.backupUrl) }
     val valid = normalizeServer(url) != null
+    val backupValid = backup.isBlank() || normalizeServer(backup) != null
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.connection)) },
         text = {
-            OutlinedTextField(
-                value = url, onValueChange = { url = it }, modifier = Modifier.fillMaxWidth().testTag("serverUrl"),
-                label = { Text(stringResource(R.string.server_label)) },
-                placeholder = { Text(stringResource(R.string.server_hint)) },
-                singleLine = true, isError = url.isNotBlank() && !valid,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-                supportingText = if (url.isNotBlank() && !valid) ({ Text(stringResource(R.string.invalid_server)) }) else null,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = url, onValueChange = { url = it }, modifier = Modifier.fillMaxWidth().testTag("serverUrl"),
+                    label = { Text(stringResource(R.string.server_label)) },
+                    placeholder = { Text(stringResource(R.string.server_hint)) },
+                    singleLine = true, isError = url.isNotBlank() && !valid,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                    supportingText = if (url.isNotBlank() && !valid) ({ Text(stringResource(R.string.invalid_server)) }) else null,
+                )
+                ProbeLine(normalizeServer(url), state)
+                OutlinedTextField(
+                    value = backup, onValueChange = { backup = it }, modifier = Modifier.fillMaxWidth().testTag("backupUrl"),
+                    label = { Text(stringResource(R.string.backup_label)) },
+                    placeholder = { Text(stringResource(R.string.backup_hint)) },
+                    singleLine = true, isError = !backupValid,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                    supportingText = if (!backupValid) ({ Text(stringResource(R.string.invalid_server)) }) else null,
+                )
+                if (backup.isNotBlank()) ProbeLine(normalizeServer(backup), state)
+                TextButton(
+                    onClick = { onTest(url, backup) },
+                    enabled = valid && backupValid && !state.probing,
+                    modifier = Modifier.testTag("testConnection"),
+                ) {
+                    Text(stringResource(if (state.probing) R.string.testing_connection else R.string.test_connection))
+                }
+            }
         },
         confirmButton = {
-            TextButton(onClick = { onConnect(url) }, enabled = valid && !state.loading) {
+            TextButton(onClick = { onConnect(url, backup) }, enabled = valid && backupValid && !state.loading) {
                 Text(stringResource(R.string.connect))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+    )
+}
+
+@Composable
+private fun ProbeLine(url: String?, state: IngresoState) {
+    val result = url?.let { state.probeResults[it] } ?: return
+    val message = when (result) {
+        ProbeResult.OK -> R.string.probe_ok
+        ProbeResult.TIMEOUT -> R.string.probe_timeout
+        ProbeResult.REFUSED -> R.string.probe_refused
+        ProbeResult.UNREACHABLE -> R.string.probe_unreachable
+        ProbeResult.API_ERROR -> R.string.probe_api_error
+    }
+    Text(
+        stringResource(message), style = MaterialTheme.typography.bodySmall,
+        color = if (result == ProbeResult.OK) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
     )
 }
 

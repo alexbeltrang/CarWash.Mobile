@@ -13,6 +13,9 @@ import java.util.Locale
 
 interface ServerSettings {
     var serverUrl: String
+    var backupUrl: String
+        get() = ""
+        set(_) {}
     var pendingTurn: String?
 }
 
@@ -23,16 +26,24 @@ class AndroidServerSettings(context: Context, private val defaultUrl: String) : 
         get() = preferences.getString("url", defaultUrl).orEmpty()
         set(value) { preferences.edit().putString("url", value).apply() }
 
+    override var backupUrl: String
+        get() = preferences.getString("backupUrl", "").orEmpty()
+        set(value) { preferences.edit().putString("backupUrl", value).apply() }
+
     override var pendingTurn: String?
         get() = preferences.getString("pendingTurn", null)
         set(value) { check(preferences.edit().putString("pendingTurn", value).commit()) }
 }
 
-enum class NoticeKind { CONNECTION_FAILED, INVALID_SERVER, LOOKUP_FAILED, NOT_FOUND, CLOSED_CASH, INVALID_FORM, SAVED, SAVE_FAILED, REVIEW_REQUIRED }
+enum class NoticeKind { CONNECTION_FAILED, INVALID_SERVER, LOOKUP_FAILED, NOT_FOUND, CLOSED_CASH, INVALID_FORM, SAVED, SAVE_FAILED, REVIEW_REQUIRED, IN_PROCESS, UPDATED }
 data class Notice(val kind: NoticeKind, val detail: String = "")
 
 data class IngresoState(
     val serverUrl: String = "",
+    val backupUrl: String = "",
+    val usingBackup: Boolean = false,
+    val probing: Boolean = false,
+    val probeResults: Map<String, ProbeResult> = emptyMap(),
     val connected: Boolean = false,
     val loading: Boolean = false,
     val searching: Boolean = false,
@@ -47,15 +58,18 @@ data class IngresoState(
     val notice: Notice? = null,
     val notificationTurnId: Int? = null,
     val notificationStatus: String? = null,
+    val editingTurnId: Int? = null,
 )
 
 class IngresoViewModel(
     private val settings: ServerSettings,
+    private val probe: suspend (String) -> ProbeResult = ::probeServer,
     private val repositoryFactory: (String) -> IngresoRepository = ApiIngresoRepository::create,
 ) : ViewModel() {
     var state by mutableStateOf(
         IngresoState(
             serverUrl = settings.serverUrl,
+            backupUrl = settings.backupUrl,
             reviewRequired = settings.pendingTurn != null,
             pendingNumber = settings.pendingTurn.orEmpty(),
             notice = settings.pendingTurn?.let { Notice(NoticeKind.REVIEW_REQUIRED, it) },
@@ -70,10 +84,11 @@ class IngresoViewModel(
         if (state.serverUrl.isNotBlank()) connect(state.serverUrl)
     }
 
-    fun connect(rawUrl: String) {
+    fun connect(rawUrl: String, rawBackup: String = state.backupUrl) {
         if (state.saving || state.loading) return
         val url = normalizeServer(rawUrl)
-        if (url == null) {
+        val backup = if (rawBackup.isBlank()) "" else normalizeServer(rawBackup)
+        if (url == null || backup == null) {
             state = state.copy(notice = Notice(NoticeKind.INVALID_SERVER))
             return
         }
@@ -81,24 +96,53 @@ class IngresoViewModel(
         lookupJob?.cancel()
         val changed = url != state.serverUrl
         state = state.copy(
-            serverUrl = url, connected = false, loading = true, searching = false,
+            serverUrl = url, backupUrl = backup, usingBackup = false, connected = false, loading = true, searching = false,
             form = if (changed) IngresoForm() else state.form,
             history = if (changed) emptyList() else state.history,
             catalog = if (changed) Catalog(emptyList(), emptyList(), null) else state.catalog,
             searched = if (changed) false else state.searched,
             notice = if (state.reviewRequired) state.notice else null,
         )
-        val source = repositoryFactory(url)
-        repository = source
+        val primary = repositoryFactory(url)
+        repository = primary
+        viewModelScope.launch {
+            val candidates = buildList {
+                add(false to primary)
+                if (backup.isNotEmpty() && backup != url) add(true to repositoryFactory(backup))
+            }
+            for ((isBackup, source) in candidates) {
+                try {
+                    val catalog = source.load()
+                    repository = source
+                    settings.serverUrl = url
+                    settings.backupUrl = backup
+                    state = state.copy(connected = true, loading = false, usingBackup = isBackup, catalog = catalog)
+                    return@launch
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                }
+            }
+            state = state.copy(connected = false, loading = false, notice = Notice(NoticeKind.CONNECTION_FAILED))
+        }
+    }
+
+    fun testConnection(rawUrl: String, rawBackup: String) {
+        if (state.probing) return
+        val urls = listOf(rawUrl, rawBackup).filter { it.isNotBlank() }.map { normalizeServer(it) }
+        if (urls.isEmpty() || urls.any { it == null }) {
+            state = state.copy(notice = Notice(NoticeKind.INVALID_SERVER))
+            return
+        }
+        state = state.copy(probing = true, probeResults = emptyMap())
         viewModelScope.launch {
             try {
-                val catalog = source.load()
-                settings.serverUrl = url
-                state = state.copy(connected = true, loading = false, catalog = catalog)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                state = state.copy(connected = false, loading = false, notice = Notice(NoticeKind.CONNECTION_FAILED))
+                for (url in urls.filterNotNull().distinct()) {
+                    val result = probe(url)
+                    state = state.copy(probeResults = state.probeResults + (url to result))
+                }
+            } finally {
+                state = state.copy(probing = false)
             }
         }
     }
@@ -113,6 +157,7 @@ class IngresoViewModel(
             searching = false,
             searched = if (plateChanged) false else state.searched,
             history = if (plateChanged) emptyList() else state.history,
+            editingTurnId = if (plateChanged) null else state.editingTurnId,
             errors = if (state.errors.isEmpty()) emptySet() else updated.errors(),
             notice = null,
         )
@@ -123,7 +168,7 @@ class IngresoViewModel(
         val plate = reviewedPlate(value) ?: return
         val changed = plate != reviewedPlate(state.form.plate)
         edit {
-            if (changed) it.copy(plate = plate, customer = "", phone = "", brand = "", typeId = null)
+            if (changed) it.copy(plate = plate, customer = "", phone = "", email = "", brand = "", typeId = null)
                 .withServices(emptySet(), state.catalog.services)
             else it.copy(plate = plate)
         }
@@ -157,17 +202,38 @@ class IngresoViewModel(
                 val result = source.lookup(plate)
                 if (state.form.plate != plate) return@launch
                 val vehicle = result.vehicle
+                val inProcess = result.inProcess
                 val typeId = vehicle?.idTipoVehiculo?.takeIf { id -> state.catalog.types.any { it.idTipoVehiculo == id } }
-                val form = state.form.copy(
+                val form = if (inProcess != null) {
+                    val available = state.catalog.services
+                        .filter { it.idTipoVehiculo == inProcess.idTipoVehiculo }.map { it.idServicio }.toSet()
+                    state.form.copy(
+                        typeId = inProcess.idTipoVehiculo,
+                        customer = inProcess.nombreCliente.orEmpty().uppercase(Locale.ROOT),
+                        phone = inProcess.numeroCelular.orEmpty(),
+                        email = inProcess.correoElectronico.orEmpty(),
+                        brand = inProcess.marca.orEmpty().uppercase(Locale.ROOT),
+                        observations = inProcess.observaciones.orEmpty(),
+                        serviceIds = inProcess.idServicios.filter { it in available }.toSet(),
+                        value = inProcess.valor.setScale(2).toPlainString(),
+                        baseValue = inProcess.valorBaseComision.setScale(2).toPlainString(),
+                    )
+                } else state.form.copy(
                     typeId = typeId,
                     customer = vehicle?.nombreCliente.orEmpty().uppercase(Locale.ROOT),
                     phone = vehicle?.numeroCelular.orEmpty(),
+                    email = vehicle?.correoElectronico.orEmpty(),
                     brand = vehicle?.marca.orEmpty().uppercase(Locale.ROOT),
                 ).withServices(emptySet(), state.catalog.services)
                 state = state.copy(
                     form = form, searching = false, searched = true,
                     history = result.history, errors = emptySet(),
-                    notice = if (vehicle == null) Notice(NoticeKind.NOT_FOUND) else null,
+                    editingTurnId = inProcess?.idTurno,
+                    notice = when {
+                        inProcess != null -> Notice(NoticeKind.IN_PROCESS, inProcess.numeroTurno.orEmpty())
+                        vehicle == null -> Notice(NoticeKind.NOT_FOUND)
+                        else -> null
+                    },
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -193,7 +259,32 @@ class IngresoViewModel(
         }
         val source = repository ?: return
         val form = state.form
-        state = state.copy(saving = true, errors = emptySet(), notice = null)
+        val editingId = state.editingTurnId
+        if (editingId != null) {
+            state = state.copy(saving = true, errors = emptySet(), notice = null)
+            viewModelScope.launch {
+                try {
+                    source.updateInProcess(editingId, form)
+                    state = state.copy(
+                        form = IngresoForm(), history = emptyList(), searched = false,
+                        saving = false, editingTurnId = null,
+                        notice = Notice(NoticeKind.UPDATED, form.plate.trim().uppercase(Locale.ROOT)),
+                    )
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    state = state.copy(saving = false, notice = Notice(NoticeKind.SAVE_FAILED))
+                }
+            }
+            return
+        }
+        state = state.copy(
+            saving = true,
+            errors = emptySet(),
+            notice = null,
+            notificationTurnId = null,
+            notificationStatus = null,
+        )
         viewModelScope.launch {
             try {
                 val saved = source.register(form) { number ->
@@ -208,11 +299,21 @@ class IngresoViewModel(
                     notificationStatus = saved.notificationStatus,
                     notice = Notice(
                         NoticeKind.SAVED,
-                        listOf(saved.numeroTurno.orEmpty(), saved.notificationStatus?.let { "WhatsApp: $it" })
+                        listOf(saved.numeroTurno.orEmpty(), saved.notificationStatus?.let { "Correo: $it" })
                             .filterNot { it.isNullOrBlank() }
                             .joinToString(" - "),
                     ),
                 )
+                viewModelScope.launch {
+                    runCatching { source.notifyEmail(saved.idTurno) }
+                            .getOrNull()
+                            ?.let { result ->
+                                state = state.copy(
+                                    notificationTurnId = result.idTurno,
+                                    notificationStatus = result.estado,
+                                )
+                            }
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: CashClosedException) {
@@ -231,25 +332,30 @@ class IngresoViewModel(
         }
     }
 
-    fun retryWhatsapp() {
+    fun retryEmail() {
         val idTurno = state.notificationTurnId ?: return
         val source = repository ?: return
         viewModelScope.launch {
             try {
-                val result = source.retryWhatsapp(idTurno) ?: return@launch
+                val result = source.retryEmail(idTurno) ?: return@launch
                 state = state.copy(notificationStatus = result.estado, notice = Notice(
                     NoticeKind.SAVED,
-                    "$idTurno - WhatsApp: ${result.estado}",
+                    "$idTurno - Correo: ${result.estado}",
                 ))
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
                 state = state.copy(notificationStatus = "FAILED", notice = Notice(
                     NoticeKind.SAVED,
-                    "$idTurno - WhatsApp: FAILED",
+                    "$idTurno - Correo: FAILED",
                 ))
             }
         }
+
+    }
+
+    fun clearEmailStatus() {
+        state = state.copy(notificationTurnId = null, notificationStatus = null)
     }
 
     fun clear() {
@@ -259,6 +365,7 @@ class IngresoViewModel(
         state = state.copy(
             form = IngresoForm(), history = emptyList(), searched = false, searching = false,
             errors = emptySet(), notice = null, reviewRequired = false, pendingNumber = "",
+            notificationTurnId = null, notificationStatus = null, editingTurnId = null,
         )
     }
 }

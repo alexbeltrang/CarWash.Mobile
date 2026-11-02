@@ -1,12 +1,12 @@
-# Implementation Plan: Confirmación de ingreso por WhatsApp
+# Implementation Plan: Confirmación de ingreso por correo electrónico
 
 **Branch**: `004-confirmacion-whatsapp` | **Date**: 2026-10-28 | **Spec**: [spec.md](./spec.md)
 
 ## Summary
 
 Después de confirmar un ingreso y sus servicios, `CarWashApi` preparará y enviará
-una plantilla aprobada de WhatsApp mediante Meta Cloud API. La app móvil solo
-consumirá el resultado de la API. La API persistirá una notificación por ingreso
+un correo mediante SMTP. La app móvil solo consumirá el resultado de la API.
+La API persistirá una notificación por ingreso
 con una clave única, estados observables y reintentos acotados; un fallo de
 mensajería nunca revierte el ingreso. Las credenciales y la configuración de
 plantilla permanecerán fuera del APK y del repositorio.
@@ -14,13 +14,13 @@ plantilla permanecerán fuera del APK y del repositorio.
 ## Technical Context
 
 **Language/Version**: Kotlin/JVM 17 (Android); C#/.NET 9 (API existente)
-**Primary Dependencies**: Jetpack Compose, Retrofit/Gson, ASP.NET Core, EF Core SQLite, Meta Graph API
+**Primary Dependencies**: Jetpack Compose, Retrofit/Gson, ASP.NET Core, EF Core SQLite, SMTP
 **Storage**: SQLite existente de CarWashApi; nueva tabla de notificaciones
 **Testing**: JUnit/MockWebServer, pruebas de servicio/controlador .NET, mocks Graph API y webhooks
 **Target Platform**: Android API 26+ y servidor IIS Windows en red local
 **Project Type**: Aplicación móvil + API web
 **Performance Goals**: Estado de notificación visible en menos de 10 segundos sin esperar indefinidamente a Meta
-**Constraints**: No secretos en móvil/repositorio, no duplicados, no mensajes reales en pruebas
+**Constraints**: No secretos en móvil/repositorio, no duplicados, no correos reales en pruebas
 **Scale/Scope**: Ingresos diarios del autolavado; una notificación por ingreso confirmado
 
 ## Constitution Check

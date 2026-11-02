@@ -1,6 +1,8 @@
 package com.carwash.mobile.ingreso
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import okhttp3.OkHttpClient
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -18,6 +20,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
+const val HISTORY_LIMIT = 5
+
 interface CarWashApi {
     @GET("api/TipoVehiculo/GetAll")
     suspend fun types(): List<VehicleType>
@@ -34,6 +38,12 @@ interface CarWashApi {
     @GET("api/Turnos/HistorialPorPlaca")
     suspend fun history(@Query("placa") plate: String): Response<List<HistoryEntry>>
 
+    @GET("api/Turnos/EnProcesoPorPlaca")
+    suspend fun inProcess(@Query("placa") plate: String): Response<InProcessTurn>
+
+    @PUT("api/Turnos/{idTurno}/EnProceso")
+    suspend fun updateInProcess(@Path("idTurno") idTurno: Int, @Body update: InProcessUpdate): Response<Unit>
+
     @GET("api/TurnosDiarios/ByFecha")
     suspend fun daily(@Query("fecha") date: String? = null): Response<List<DailyTurn>>
 
@@ -49,21 +59,25 @@ interface CarWashApi {
     @POST("api/TurnoServicios/RegistrarTurnoServicio")
     suspend fun createTurnService(@Body service: TurnServiceRequest): Response<Unit>
 
-    @POST("api/Turnos/{idTurno}/notificacion-whatsapp")
-    suspend fun notifyWhatsapp(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
+    @POST("api/Turnos/{idTurno}/notificacion-email")
+    suspend fun notifyEmail(@Path("idTurno") idTurno: Int): Response<EmailNotificationResult>
 
-    @GET("api/Turnos/{idTurno}/notificacion-whatsapp")
-    suspend fun whatsappStatus(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
+    @GET("api/Turnos/{idTurno}/notificacion-email")
+    suspend fun emailStatus(@Path("idTurno") idTurno: Int): Response<EmailNotificationResult>
 
-    @POST("api/Turnos/{idTurno}/notificacion-whatsapp/reintentar")
-    suspend fun retryWhatsapp(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
+    @POST("api/Turnos/{idTurno}/notificacion-email/reintentar")
+    suspend fun retryEmail(@Path("idTurno") idTurno: Int): Response<EmailNotificationResult>
 }
 
 interface IngresoRepository {
     suspend fun load(): Catalog
     suspend fun lookup(plate: String): PlateLookup
     suspend fun register(form: IngresoForm, beforeWrite: (String) -> Unit): SavedTurn
-    suspend fun retryWhatsapp(idTurno: Int): WhatsAppNotificationResult? = null
+    suspend fun updateInProcess(idTurno: Int, form: IngresoForm) {
+        throw UnsupportedOperationException()
+    }
+    suspend fun notifyEmail(idTurno: Int): EmailNotificationResult? = null
+    suspend fun retryEmail(idTurno: Int): EmailNotificationResult? = null
 }
 
 class CashClosedException : IOException()
@@ -81,11 +95,32 @@ class ApiIngresoRepository(
 
     override suspend fun lookup(plate: String): PlateLookup = PlateLookup(
         vehicle = api.vehicle(plate).optional(),
-        history = api.history(plate).optional().orEmpty(),
+        history = api.history(plate).optional().orEmpty().take(HISTORY_LIMIT),
+        inProcess = api.inProcess(plate).optional(),
     )
 
-    override suspend fun retryWhatsapp(idTurno: Int): WhatsAppNotificationResult? =
-        api.retryWhatsapp(idTurno).optional()
+    override suspend fun updateInProcess(idTurno: Int, form: IngresoForm) {
+        api.updateInProcess(
+            idTurno,
+            InProcessUpdate(
+                nombreCliente = form.customer.trim().uppercase(Locale.ROOT),
+                numeroCelular = form.phone.trim(),
+                correoElectronico = form.email.trim(),
+                marca = form.brand.trim().uppercase(Locale.ROOT),
+                observaciones = form.observations.trim().uppercase(Locale.ROOT),
+                idTipoVehiculo = requireNotNull(form.typeId),
+                valor = requireNotNull(parseAmount(form.value)),
+                valorBaseComision = requireNotNull(parseAmount(form.baseValue)),
+                idServicios = form.serviceIds.toList(),
+            ),
+        ).requireSuccess()
+    }
+
+    override suspend fun retryEmail(idTurno: Int): EmailNotificationResult? =
+        api.retryEmail(idTurno).optional()
+
+    override suspend fun notifyEmail(idTurno: Int): EmailNotificationResult? =
+        api.notifyEmail(idTurno).optional()
 
     override suspend fun register(form: IngresoForm, beforeWrite: (String) -> Unit): SavedTurn {
         require(form.errors().isEmpty())
@@ -111,6 +146,7 @@ class ApiIngresoRepository(
                     numeroTurno = number,
                     nombreCliente = form.customer.trim().uppercase(Locale.ROOT),
                     numeroCelular = form.phone.trim(),
+                    correoElectronico = form.email.trim(),
                     placa = form.plate.trim().uppercase(Locale.ROOT),
                     fechaHoraIngreso = time.toString(),
                     marca = form.brand.trim().uppercase(Locale.ROOT),
@@ -126,8 +162,7 @@ class ApiIngresoRepository(
             for (serviceId in form.serviceIds) {
                 api.createTurnService(TurnServiceRequest(serviceId, saved.idTurno)).requireSuccess()
             }
-            val notification = runCatching { api.notifyWhatsapp(saved.idTurno).optional() }.getOrNull()
-            return saved.copy(notificationStatus = notification?.estado)
+            return saved
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (closed: CashClosedException) {
@@ -150,6 +185,32 @@ class ApiIngresoRepository(
                 .addConverterFactory(GsonConverterFactory.create()).build().create(CarWashApi::class.java)
             return ApiIngresoRepository(api)
         }
+    }
+}
+
+enum class ProbeResult { OK, TIMEOUT, REFUSED, UNREACHABLE, API_ERROR }
+
+// Solo lectura: consulta un catalogo existente para distinguir red, puerto y API.
+suspend fun probeServer(url: String): ProbeResult {
+    val client = OkHttpClient.Builder()
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
+        .build()
+    val request = okhttp3.Request.Builder().url(url + "api/TipoVehiculo/GetAll").get().build()
+    return try {
+        runInterruptible(Dispatchers.IO) {
+            client.newCall(request).execute().use { if (it.isSuccessful) ProbeResult.OK else ProbeResult.API_ERROR }
+        }
+    } catch (_: java.net.SocketTimeoutException) {
+        ProbeResult.TIMEOUT
+    } catch (failure: java.net.ConnectException) {
+        val text = generateSequence<Throwable>(failure) { it.cause }.joinToString(" ") { it.message.orEmpty() }
+        if (text.contains("refused", ignoreCase = true) || text.contains("ECONNREFUSED")) ProbeResult.REFUSED else ProbeResult.UNREACHABLE
+    } catch (_: IOException) {
+        ProbeResult.UNREACHABLE
     }
 }
 

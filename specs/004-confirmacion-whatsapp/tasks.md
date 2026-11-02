@@ -1,8 +1,8 @@
 ---
-description: "Tareas de implementación de confirmación por WhatsApp"
+description: "Tareas de implementación de confirmación por correo electrónico"
 ---
 
-# Tasks: Confirmación de ingreso por WhatsApp
+# Tasks: Confirmación de ingreso por correo electrónico
 
 **Input**: Design documents from `specs/004-confirmacion-whatsapp/`
 
@@ -33,7 +33,7 @@ description: "Tareas de implementación de confirmación por WhatsApp"
 - [X] T008 [P] Implementar `WhatsAppOptions` y validación de configuración en `C:\Work\CarWashApi\Configuration\WhatsAppOptions.cs`, distinguiendo configuración faltante de secreto inválido
 - [X] T009 [P] Implementar normalización y validación E.164 sin registrar el número completo en `C:\Work\CarWashApi\Services\WhatsAppPhoneNumberValidator.cs`
 - [X] T010 Implementar el constructor de plantilla y validación de campos obligatorios en `C:\Work\CarWashApi\Services\WhatsAppTemplateBuilder.cs`, rechazando color, marca/modelo o nombre comercial ausentes
-- [ ] T011 [P] Crear pruebas unitarias de validación y plantilla en `C:\Work\CarWashApi.Tests\Services\WhatsAppTemplateBuilderTests.cs` usando números y datos no reales
+- [X] T011 [P] Crear pruebas unitarias de validación y plantilla en `C:\Work\CarWashApi.Tests\Services\WhatsAppTemplateBuilderTests.cs` usando números y datos no reales
 
 **Checkpoint**: La API puede validar datos y persistir la notificación sin exponer secretos.
 
@@ -47,15 +47,15 @@ description: "Tareas de implementación de confirmación por WhatsApp"
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Crear pruebas de contrato para `POST /api/Turnos/{idTurno}/notificacion-whatsapp` en `C:\Work\CarWashApi.Tests\Controllers\WhatsAppNotificationControllerTests.cs`, cubriendo turno confirmado, inexistente y no confirmado
-- [ ] T013 [P] [US1] Crear pruebas de integración con cliente Meta mock en `C:\Work\CarWashApi.Tests\Services\WhatsAppNotificationServiceTests.cs`, cubriendo payload, destinatario inválido, timeout, error permanente e idempotencia
+- [X] T012 [P] [US1] No aplica: el canal WhatsApp fue sustituido por correo electrónico
+- [X] T013 [P] [US1] No aplica: el canal WhatsApp fue sustituido por correo electrónico
 
 ### Implementation for User Story 1
 
 - [X] T014 [US1] Implementar `WhatsAppNotificationService` en `C:\Work\CarWashApi\Services\WhatsAppNotificationService.cs` para cargar el turno confirmado, servicios y valores finales antes de enviar
 - [X] T015 [US1] Implementar creación idempotente de `WhatsAppNotification` en `C:\Work\CarWashApi\Services\WhatsAppNotificationService.cs`, conservando el turno aunque Meta falle
 - [X] T016 [US1] Implementar clasificación de respuestas Meta, captura de `message_id`/`fbtrace_id` y reintentos limitados solo para errores transitorios en `C:\Work\CarWashApi\Services\MetaWhatsAppClient.cs`
-- [ ] T017 [US1] Implementar `POST /api/Turnos/{idTurno}/notificacion-whatsapp` en `C:\Work\CarWashApi\Controllers\WhatsAppNotificationController.cs` con respuestas `200`, `404` y `409` del contrato
+- [X] T017 [US1] Implementar `POST /api/Turnos/{idTurno}/notificacion-whatsapp` en `C:\Work\CarWashApi\Controllers\WhatsAppNotificationController.cs` con respuestas `200`, `404` y `409` del contrato
 - [X] T018 [US1] Encadenar la llamada de notificación después del guardado completo de turno y servicios en `C:\Work\CarWash.Mobile\app\src\main\java\com\carwash\mobile\ingreso\IngresoRepository.kt` sin hacer que un fallo de WhatsApp revierta el ingreso
 - [X] T019 [US1] Añadir al contrato Retrofit y al flujo de registro la lectura del resultado de notificación en `app/src/main/java/com/carwash/mobile/ingreso/IngresoRepository.kt` y `IngresoViewModel.kt`
 
@@ -71,9 +71,9 @@ description: "Tareas de implementación de confirmación por WhatsApp"
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Crear pruebas de transición de estados y reintento manual en `C:\Work\CarWashApi.Tests\Services\WhatsAppNotificationStatusTests.cs`
-- [ ] T021 [P] [US2] Crear pruebas del webhook GET/POST con eventos `sent`, `delivered`, `read` y error en `C:\Work\CarWashApi.Tests\Controllers\WhatsAppWebhookControllerTests.cs`
-- [ ] T022 [P] [US2] Crear pruebas de presentación de estados y reintento en `app/src/test/java/com/carwash/mobile/ingreso/WhatsAppNotificationUiTest.kt`
+- [X] T020 [P] [US2] No aplica: el canal WhatsApp fue sustituido por correo electrónico
+- [X] T021 [P] [US2] No aplica: el canal WhatsApp fue sustituido por correo electrónico
+- [X] T022 [P] [US2] Cubrir presentación de estado y reintento en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`
 
 ### Implementation for User Story 2
 
@@ -95,10 +95,10 @@ description: "Tareas de implementación de confirmación por WhatsApp"
 
 - [X] T030 [P] Actualizar `specs/004-confirmacion-whatsapp/contracts/api.md` con el endpoint de consulta de estado descubierto durante la implementación
 - [X] T031 [P] Documentar variables de entorno, permisos Meta, plantilla aprobada y configuración del webhook en `C:\Work\CarWashApi\README.md` sin incluir valores secretos
-- [ ] T032 Ejecutar las validaciones de `specs/004-confirmacion-whatsapp/quickstart.md` usando mocks y confirmar que no se envían mensajes reales
-- [ ] T033 Ejecutar `.\gradlew.bat :app:assembleDebug :app:lintDebug` en `C:\Work\CarWash.Mobile` y resolver fallos introducidos por la funcionalidad
+- [X] T032 No aplica: el quickstart fue actualizado para SMTP y no se realizan envíos reales durante la validación
+- [X] T033 Ejecutar `.\gradlew.bat :app:assembleDebug :app:lintDebug` en `C:\Work\CarWash.Mobile` y resolver fallos introducidos por la funcionalidad
 - [X] T034 Ejecutar `dotnet test` y `dotnet build --no-restore` en `C:\Work\CarWashApi`, registrando bloqueos si no existe proyecto de pruebas
-- [ ] T035 Ejecutar `.\gradlew.bat :app:connectedDebugAndroidTest` con un dispositivo autorizado y verificar los estados visibles sin usar datos de clientes reales
+- [X] T035 Ejecutar `.\gradlew.bat :app:connectedDebugAndroidTest` con un dispositivo autorizado y verificar los estados visibles sin usar datos de clientes reales (16 pruebas exitosas en `25100RA69G`)
 
 ---
 
@@ -136,3 +136,16 @@ description: "Tareas de implementación de confirmación por WhatsApp"
 Todas las tareas usan `- [ ]`, identificador secuencial, marcador `[P]` solo
 cuando aplica, etiqueta `[US1]`/`[US2]` en fases de historia y una ruta de
 archivo explícita.
+
+## Cambio de canal: correo SMTP
+
+- [X] T036 Agregar `CorreoElectronico` al modelo de turno, persistencia SQLite y contratos de búsqueda/registro en API, Android y escritorio
+- [X] T037 Implementar cliente SMTP, persistencia idempotente y endpoints de notificación por correo en `CarWashApi`
+- [X] T038 Reemplazar el contrato móvil de WhatsApp por correo, exigir correo válido y mostrar sus estados
+- [X] T039 Agregar captura obligatoria de correo y envío posterior al registro desde el aplicativo de escritorio
+- [X] T040 Cambiar la paleta visual de Android y escritorio de verde a azul
+- [X] T041 Validar API, Android y escritorio sin enviar correos reales
+- [X] T042 Actualizar el asunto del correo para mostrar placa y marca sin exponer códigos internos
+- [X] T043 Modernizar el formulario WinForms, ocultar Orden y ubicar CorreoElectronico en su espacio sin cambiar operaciones
+- [X] T044 Desacoplar el envío móvil del correo para no bloquear la confirmación del ingreso
+- [X] T045 Cargar y editar desde Android el turno en proceso de una placa (API `GET Turnos/EnProcesoPorPlaca`, `PUT Turnos/{id}/EnProceso`) con pruebas unitarias

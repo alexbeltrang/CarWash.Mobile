@@ -1,19 +1,17 @@
-# Modelo de datos
+# Modelo de datos: confirmación por correo
 
-## NotificaciónWhatsApp
+## NotificaciónEmail
 
 Una notificación pertenece a un único `Turno` confirmado y se crea de forma
-idempotente con una restricción única sobre `IdTurno` y el tipo de evento.
+idempotente con una restricción única sobre `IdTurno`.
 
 | Campo | Tipo | Reglas |
 |---|---|---|
 | Id | entero | clave primaria |
 | IdTurno | entero | obligatorio, único por recepción |
-| DestinatarioNormalizado | texto | E.164; no mostrar completo en logs |
+| Destinatario | texto | correo validado; no mostrar completo en logs |
 | Estado | enum | `NOT_APPLICABLE`, `PENDING`, `RETRYING`, `ACCEPTED`, `DELIVERED`, `FAILED` |
 | Intentos | entero | >= 0 y limitado |
-| MessageIdExterno | texto nullable | ID devuelto por Meta |
-| FbTraceId | texto nullable | diagnóstico no sensible |
 | UltimoErrorCodigo | texto nullable | código estructurado de Meta |
 | CreadoEn/ActualizadoEn | fecha | convención existente de API |
 | ProximoIntentoEn | fecha nullable | solo para error transitorio |
@@ -26,7 +24,7 @@ ingreso confirmado y de la plantilla configurada.
 La API devuelve `idTurno`, `estado` y `accion` (`NONE`, `RETRY_MANUAL` o
 `CONFIGURE_DATA`), sin tokens, cuerpos de Meta ni número completo.
 
-`NOT_APPLICABLE` es terminal por datos ausentes/no utilizables.
+`NOT_APPLICABLE` es terminal por correo ausente/no utilizable.
 `PENDING -> RETRYING -> ACCEPTED -> DELIVERED`.
 `PENDING/RETRYING -> FAILED` al agotar reintentos o recibir error permanente.
 `FAILED -> RETRYING` solo por reintento manual sin `MessageIdExterno` aceptado.

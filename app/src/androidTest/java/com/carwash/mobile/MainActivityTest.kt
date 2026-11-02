@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,6 +27,7 @@ import com.carwash.mobile.ingreso.ServerSettings
 import com.carwash.mobile.ingreso.VehicleInfo
 import com.carwash.mobile.ingreso.VehicleService
 import com.carwash.mobile.ingreso.VehicleType
+import com.carwash.mobile.ingreso.EmailNotificationResult
 import com.carwash.mobile.ui.theme.CarWashTheme
 import org.junit.Assert.*
 import org.junit.Before
@@ -58,13 +61,29 @@ class MainActivityTest {
         composeRule.onNodeWithText("CarWash").assertIsDisplayed()
         composeRule.onNodeWithText("Ingreso de vehículo").assertIsDisplayed()
         composeRule.onNodeWithText("Conectado").assertIsDisplayed()
-        composeRule.onNodeWithTag("save").performClick()
+        composeRule.onNodeWithTag("save").assertIsNotEnabled()
+        composeRule.onNodeWithTag("lookup").performClick()
         composeRule.onNodeWithText("Ingrese la placa.").performScrollTo().assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, repository.writes) }
     }
 
     @Test
+    fun vehicleFieldsStayHiddenUntilSearchAndHideAgainWhenPlateChanges() {
+        for (tag in listOf("vehicleType", "observations")) {
+            composeRule.onNodeWithTag(tag).assertDoesNotExist()
+        }
+        composeRule.onNodeWithTag("plate").performTextInput("abc123")
+        composeRule.onNodeWithTag("vehicleType").assertDoesNotExist()
+        composeRule.onNodeWithTag("lookup").performClick()
+        composeRule.onNodeWithTag("vehicleType").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("plate").performScrollTo().performTextReplacement("ZZ")
+        composeRule.onNodeWithTag("vehicleType").assertDoesNotExist()
+        composeRule.onNodeWithTag("save").assertIsNotEnabled()
+    }
+
+    @Test
     fun selectedServicesRecalculateTotalAndBase() {
+        search("abc123")
         selectAutomobile()
         composeRule.onNodeWithTag("service-1").performScrollTo().performClick()
         composeRule.runOnIdle {
@@ -82,7 +101,8 @@ class MainActivityTest {
         composeRule.onNodeWithTag("order").assertDoesNotExist()
         fillForm()
         composeRule.onNodeWithTag("save").performClick()
-        composeRule.onNodeWithText("Ingreso registrado: T-20261028-001").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Ingreso registrado: T-20261028-001", substring = true)
+            .performScrollTo().assertIsDisplayed()
         composeRule.runOnIdle {
             assertEquals(1, repository.writes)
             assertEquals("ABC123", repository.lastForm?.plate)
@@ -132,6 +152,20 @@ class MainActivityTest {
     }
 
     @Test
+    fun emailFailureCanBeRetriedWithoutResubmittingTheForm() {
+        repository.notificationStatus = "FAILED"
+        fillForm()
+        composeRule.onNodeWithTag("save").performClick()
+        composeRule.onNodeWithText("No se pudo enviar el correo.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Reintentar envío").performScrollTo().performClick()
+        composeRule.onNodeWithText("Correo enviado.").performScrollTo().assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(1, repository.writes)
+            assertEquals("ACCEPTED", model.state.notificationStatus)
+        }
+    }
+
+    @Test
     fun closedCashDoesNotWrite() {
         composeRule.runOnIdle { repository.closed = true }
         fillForm()
@@ -165,11 +199,17 @@ class MainActivityTest {
 
     private fun selectAutomobile() {
         composeRule.onNodeWithTag("vehicleType").performScrollTo().performClick()
-        composeRule.onNodeWithText("Automóviles").performClick()
+        composeRule.onAllNodesWithText("Automóviles").onLast().performClick()
+    }
+
+    private fun search(plate: String) {
+        composeRule.onNodeWithTag("plate").performTextInput(plate)
+        composeRule.onNodeWithTag("lookup").performClick()
+        composeRule.waitForIdle()
     }
 
     private fun fillForm() {
-        composeRule.onNodeWithTag("plate").performTextInput("abc123")
+        search("abc123")
         selectAutomobile()
         composeRule.onNodeWithTag("service-1").performScrollTo().performClick()
     }
@@ -183,6 +223,7 @@ class MainActivityTest {
         var writes = 0
         var failAfterWrite = false
         var closed = false
+        var notificationStatus = "NOT_APPLICABLE"
         var lastForm: IngresoForm? = null
 
         override suspend fun load() = Catalog(
@@ -195,7 +236,7 @@ class MainActivityTest {
         )
 
         override suspend fun lookup(plate: String) = PlateLookup(
-            if (plate == "ABC123") VehicleInfo(3, "CLIENTE DE PRUEBA", "3000000000", "MARCA") else null,
+            if (plate == "ABC123") VehicleInfo(3, "CLIENTE DE PRUEBA", "3000000000", "cliente@example.com", "MARCA") else null,
             emptyList(),
         )
 
@@ -205,7 +246,10 @@ class MainActivityTest {
             writes++
             lastForm = form
             if (failAfterWrite) throw RegistrationException(true, "T-20261028-001", IOException())
-            return SavedTurn(1, "T-20261028-001")
+            return SavedTurn(1, "T-20261028-001", notificationStatus)
         }
+
+        override suspend fun retryEmail(idTurno: Int) =
+            EmailNotificationResult(idTurno, "ACCEPTED", "NONE")
     }
 }

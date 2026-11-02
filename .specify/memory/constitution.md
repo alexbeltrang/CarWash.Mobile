@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-Version: 1.0.0 -> 1.1.0 (ampliacion de guia de integracion y privacidad).
+Version: 1.1.0 -> 1.2.0 (permite inicio de sesion contra la API existente, sin persistir credenciales ni sesion).
 Principio modificado: IV. Privacidad y seguridad (mismo titulo).
 Secciones agregadas/eliminadas: ninguna.
 Impacto: specs/002-ingreso-vehiculo autoriza API existente y permiso INTERNET.
@@ -39,7 +39,7 @@ No bloquear la orientacion sin justificacion.
 
 La base usa JDK 17 y SDK Android 35. El identificador `com.carwash.mobile` es
 provisional hasta confirmar el dominio de la organizacion antes de publicar.
-No incorporar backend, reservas, pagos ni autenticacion sin especificacion.
+No incorporar backend, reservas, pagos ni autenticacion sin especificacion. Excepcion (spec 005): inicio de sesion contra `api/Auth/login` existente, en cada apertura, sin persistir usuario, contrasena ni sesion.
 
 ## Flujo de trabajo
 
@@ -56,4 +56,4 @@ Usar versionado semantico: cambios incompatibles de principios incrementan MAJOR
 guia ampliada incrementa MINOR y aclaraciones incrementan PATCH. Cada revision
 de cambios debe comprobar su cumplimiento y registrar excepciones.
 
-**Version**: 1.1.0 | **Ratificacion**: 2026-10-28 | **Ultima modificacion**: 2026-10-28
+**Version**: 1.2.0 | **Ratificacion**: 2026-10-28 | **Ultima modificacion**: 2026-10-28

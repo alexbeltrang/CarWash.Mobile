@@ -7,3 +7,6 @@ local.properties
 *.jks
 *.keystore
 captures/
+# Instalador generado
+installer/staging/
+installer/output/

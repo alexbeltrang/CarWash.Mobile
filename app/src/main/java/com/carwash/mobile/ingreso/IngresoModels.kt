@@ -21,6 +21,7 @@ data class VehicleInfo(
     val idTipoVehiculo: Int,
     val nombreCliente: String?,
     val numeroCelular: String?,
+    val correoElectronico: String?,
     val marca: String?,
 )
 
@@ -35,7 +36,37 @@ data class HistoryEntry(
     val servicio: String?,
 )
 
-data class PlateLookup(val vehicle: VehicleInfo?, val history: List<HistoryEntry>)
+data class InProcessTurn(
+    val idTurno: Int,
+    val numeroTurno: String?,
+    val nombreCliente: String?,
+    val numeroCelular: String?,
+    val correoElectronico: String?,
+    val marca: String?,
+    val observaciones: String?,
+    val idTipoVehiculo: Int,
+    val valor: BigDecimal,
+    val valorBaseComision: BigDecimal,
+    val idServicios: List<Int>,
+)
+
+data class InProcessUpdate(
+    val nombreCliente: String,
+    val numeroCelular: String,
+    val correoElectronico: String,
+    val marca: String,
+    val observaciones: String,
+    val idTipoVehiculo: Int,
+    val valor: BigDecimal,
+    val valorBaseComision: BigDecimal,
+    val idServicios: List<Int>,
+)
+
+data class PlateLookup(
+    val vehicle: VehicleInfo?,
+    val history: List<HistoryEntry>,
+    val inProcess: InProcessTurn? = null,
+)
 data class DailyTurn(val id: Int = 0, val fecha: String, val consecutivo: Int)
 data class SavedTurn(
     val idTurno: Int,
@@ -43,7 +74,7 @@ data class SavedTurn(
     val notificationStatus: String? = null,
 )
 
-data class WhatsAppNotificationResult(
+data class EmailNotificationResult(
     val idTurno: Int,
     val estado: String,
     val accion: String,
@@ -54,6 +85,7 @@ data class TurnRequest(
     val numeroTurno: String,
     val nombreCliente: String,
     val numeroCelular: String,
+    val correoElectronico: String,
     val placa: String,
     val fechaHoraIngreso: String,
     val marca: String,
@@ -72,6 +104,7 @@ data class IngresoForm(
     val plate: String = "",
     val customer: String = "",
     val phone: String = "",
+    val email: String = "",
     val brand: String = "",
     val observations: String = "",
     val typeId: Int? = null,
@@ -80,7 +113,7 @@ data class IngresoForm(
     val baseValue: String = "0.00",
 )
 
-enum class FormError { PLATE, TYPE, SERVICES, VALUE, BASE_VALUE }
+enum class FormError { PLATE, EMAIL, TYPE, SERVICES, VALUE, BASE_VALUE }
 
 fun parseAmount(text: String): BigDecimal? = text.trim()
     .takeIf { it.matches(Regex("[0-9]+([.,][0-9]{1,2})?")) }
@@ -88,6 +121,7 @@ fun parseAmount(text: String): BigDecimal? = text.trim()
 
 fun IngresoForm.errors(): Set<FormError> = buildSet {
     if (plate.isBlank()) add(FormError.PLATE)
+    if (!email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) add(FormError.EMAIL)
     if (typeId == null || typeId <= 0) add(FormError.TYPE)
     if (serviceIds.isEmpty()) add(FormError.SERVICES)
     if (parseAmount(value) == null) add(FormError.VALUE)

@@ -88,7 +88,7 @@ class IngresoViewModelTest {
         model.lookup()
         runCurrent()
         model.edit { it.copy(plate = "XYZ789") }
-        gate.complete(PlateLookup(VehicleInfo(3, "ANTERIOR", null, null), emptyList()))
+        gate.complete(PlateLookup(VehicleInfo(3, "ANTERIOR", null, null, null), emptyList()))
         runCurrent()
         assertEquals("XYZ789", model.state.form.plate)
         assertEquals("", model.state.form.customer)
@@ -201,16 +201,106 @@ class IngresoViewModelTest {
         assertEquals(0, source.calls)
     }
 
+    @Test
+    fun plateInProcessLoadsTurnAndSavingUpdatesInsteadOfRegistering() = runTest(dispatcher) {
+        val source = FakeRepository()
+        source.lookupResult = PlateLookup(
+            null, emptyList(),
+            InProcessTurn(9, "T-1", "ana", "3", "ana@example.com", "kia", "obs", 3, BigDecimal("20000"), BigDecimal("15000"), listOf(1)),
+        )
+        val model = model(source)
+        runCurrent()
+        model.edit { it.copy(plate = "ABC123") }
+        model.lookup()
+        runCurrent()
+        assertEquals(9, model.state.editingTurnId)
+        assertEquals(NoticeKind.IN_PROCESS, model.state.notice?.kind)
+        assertEquals(setOf(1), model.state.form.serviceIds)
+        assertEquals("ANA", model.state.form.customer)
+        model.toggleService(1)
+        assertTrue(model.state.form.serviceIds.isEmpty())
+        model.toggleService(1)
+        model.edit { it.copy(brand = "MAZDA") }
+        model.save()
+        runCurrent()
+        assertEquals(0, source.calls)
+        assertEquals(9, source.updatedId)
+        assertEquals("MAZDA", source.updatedForm?.brand)
+        assertEquals(NoticeKind.UPDATED, model.state.notice?.kind)
+        assertNull(model.state.editingTurnId)
+        assertEquals(IngresoForm(), model.state.form)
+    }
+
+    @Test
+    fun changingPlateLeavesEditingModeSoNewVehiclesAreRegistered() = runTest(dispatcher) {
+        val source = FakeRepository()
+        source.lookupResult = PlateLookup(
+            null, emptyList(),
+            InProcessTurn(9, "T-1", "ana", "3", "ana@example.com", "kia", "", 3, BigDecimal("20000"), BigDecimal("15000"), listOf(1)),
+        )
+        val model = model(source)
+        runCurrent()
+        model.edit { it.copy(plate = "ABC123") }
+        model.lookup()
+        runCurrent()
+        model.edit { it.copy(plate = "XYZ789") }
+        assertNull(model.state.editingTurnId)
+    }
+
+    @Test
+    fun fallsBackToAlternateServerAndPersistsBoth() = runTest(dispatcher) {
+        val loaded = mutableListOf<String>()
+        val settings = MemorySettings().apply { serverUrl = "" }
+        val model = IngresoViewModel(settings) { url ->
+            loaded += url
+            FakeRepository().apply { failLoad = url.contains("192.168.1.15") }
+        }
+        model.connect("http://192.168.1.15:5197", "http://192.168.1.20:5197")
+        runCurrent()
+        assertEquals(listOf("http://192.168.1.15:5197/", "http://192.168.1.20:5197/"), loaded)
+        assertTrue(model.state.connected)
+        assertTrue(model.state.usingBackup)
+        assertEquals("http://192.168.1.15:5197/", settings.serverUrl)
+        assertEquals("http://192.168.1.20:5197/", settings.backupUrl)
+    }
+
+    @Test
+    fun failsWhenPrimaryAndBackupFailAndRejectsInvalidBackup() = runTest(dispatcher) {
+        val model = IngresoViewModel(MemorySettings().apply { serverUrl = "" }) { FakeRepository().apply { failLoad = true } }
+        model.connect("http://192.168.1.15:5197", "http://example.com")
+        assertEquals(NoticeKind.INVALID_SERVER, model.state.notice?.kind)
+        model.connect("http://192.168.1.15:5197", "http://192.168.1.20:5197")
+        runCurrent()
+        assertFalse(model.state.connected)
+        assertEquals(NoticeKind.CONNECTION_FAILED, model.state.notice?.kind)
+    }
+
+    @Test
+    fun testConnectionReportsEachAddressWithoutConnecting() = runTest(dispatcher) {
+        val model = IngresoViewModel(
+            MemorySettings().apply { serverUrl = "" },
+            probe = { if (it.contains("15")) ProbeResult.OK else ProbeResult.TIMEOUT },
+        ) { FakeRepository() }
+        model.testConnection("http://192.168.1.15:5197", "http://192.168.1.20:5197")
+        assertTrue(model.state.probing)
+        runCurrent()
+        assertFalse(model.state.probing)
+        assertFalse(model.state.connected)
+        assertEquals(ProbeResult.OK, model.state.probeResults["http://192.168.1.15:5197/"])
+        assertEquals(ProbeResult.TIMEOUT, model.state.probeResults["http://192.168.1.20:5197/"])
+    }
+
     private fun model(source: FakeRepository) = IngresoViewModel(MemorySettings()) { source }
 
     private fun fill(model: IngresoViewModel) {
-        model.edit { it.copy(plate = "ABC123") }
+        model.edit { it.copy(plate = "ABC123", email = "cliente@example.com") }
         model.selectType(3)
         model.toggleService(1)
     }
 
     private class MemorySettings : ServerSettings {
         override var serverUrl = "http://10.0.2.2:5197/"
+        override var backupUrl = ""
         override var pendingTurn: String? = null
     }
 
@@ -221,6 +311,14 @@ class IngresoViewModelTest {
         var failAfterWrite = false
         var saveGate: CompletableDeferred<Unit>? = null
         var lookupGate: CompletableDeferred<PlateLookup>? = null
+        var lookupResult = PlateLookup(null, emptyList())
+        var updatedId: Int? = null
+        var updatedForm: IngresoForm? = null
+
+        override suspend fun updateInProcess(idTurno: Int, form: IngresoForm) {
+            updatedId = idTurno
+            updatedForm = form
+        }
 
         override suspend fun load(): Catalog {
             if (failLoad) throw IOException()
@@ -233,7 +331,7 @@ class IngresoViewModelTest {
 
         override suspend fun lookup(plate: String): PlateLookup {
             lastLookup = plate
-            return lookupGate?.await() ?: PlateLookup(null, emptyList())
+            return lookupGate?.await() ?: lookupResult
         }
 
         override suspend fun register(form: IngresoForm, beforeWrite: (String) -> Unit): SavedTurn {

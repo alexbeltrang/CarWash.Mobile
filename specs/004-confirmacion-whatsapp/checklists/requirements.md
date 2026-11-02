@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Confirmación de ingreso por WhatsApp
+# Specification Quality Checklist: Confirmación de ingreso por correo electrónico
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-28

@@ -15,7 +15,13 @@ import java.time.LocalDateTime
 class IngresoRepositoryTest {
     private lateinit var server: MockWebServer
     private lateinit var repository: ApiIngresoRepository
-    private val valid = IngresoForm(plate = " abc123 ", typeId = 3, serviceIds = setOf(1, 2), value = "30000,50")
+    private val valid = IngresoForm(
+        plate = " abc123 ",
+        email = "cliente@example.com",
+        typeId = 3,
+        serviceIds = setOf(1, 2),
+        value = "30000,50",
+    )
 
     @Before
     fun setUp() {
@@ -31,7 +37,7 @@ class IngresoRepositoryTest {
 
     @Test
     fun validatesRequiredFieldsAndMoneyWithoutGuessingGrouping() {
-        assertEquals(3, IngresoForm().errors().size)
+        assertEquals(4, IngresoForm().errors().size)
         assertTrue(valid.errors().isEmpty())
         assertEquals(BigDecimal("20000.50"), parseAmount("20000,50"))
         assertNull(parseAmount("20.000"))
@@ -54,6 +60,18 @@ class IngresoRepositoryTest {
     }
 
     @Test
+    fun probeDistinguishesOkApiErrorAndClosedPort() = runTest {
+        val base = server.url("/").toString()
+        server.enqueue(MockResponse().setBody("[]"))
+        assertEquals(ProbeResult.OK, probeServer(base))
+        assertEquals("/api/TipoVehiculo/GetAll", server.takeRequest().path)
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertEquals(ProbeResult.API_ERROR, probeServer(base))
+        server.shutdown()
+        assertEquals(ProbeResult.REFUSED, probeServer(base))
+    }
+
+    @Test
     fun acceptsLocalHttpOrHttpsButRejectsUnsafeUrls() {
         assertEquals("http://10.0.2.2:5197/", normalizeServer("http://10.0.2.2:5197"))
         assertEquals("http://192.168.1.15:5197/", normalizeServer("http://192.168.1.15:5197/"))
@@ -67,9 +85,41 @@ class IngresoRepositoryTest {
     fun notFoundPlateAndHistoryAreEmptyResults() = runTest {
         respond(404, "")
         respond(404, "")
+        respond(404, "")
         assertEquals(PlateLookup(null, emptyList()), repository.lookup("ABC123"))
         assertTrue(server.takeRequest().path!!.contains("placa=ABC123"))
     }
+
+    @Test
+    fun lookupLoadsTurnInProcessWithItsServices() = runTest {
+        respond(404, "")
+        respond(404, "")
+        respond(
+            200,
+            """{"idTurno":9,"numeroTurno":"T-1","nombreCliente":"ANA","numeroCelular":"3","correoElectronico":"a@b.co",
+            "marca":"KIA","observaciones":"","idTipoVehiculo":3,"valor":50000,"valorBaseComision":40000,"idServicios":[1,2]}""",
+        )
+        val inProcess = repository.lookup("ABC123").inProcess
+        assertEquals(9, inProcess?.idTurno)
+        assertEquals(listOf(1, 2), inProcess?.idServicios)
+        assertTrue(server.takeRequest().path!!.contains("api/Turnos/BuscarPorPlaca"))
+        assertTrue(server.takeRequest().path!!.contains("api/Turnos/HistorialPorPlaca"))
+        assertTrue(server.takeRequest().path!!.contains("api/Turnos/EnProcesoPorPlaca?placa=ABC123"))
+    }
+
+    @Test
+    fun updateInProcessSendsEditableFieldsAndServicesOnly() = runTest {
+        respond(204, "")
+        repository.updateInProcess(9, valid.copy(customer = " ana ", brand = "kia"))
+        val request = server.takeRequest()
+        assertEquals("PUT", request.method)
+        assertEquals("/api/Turnos/9/EnProceso", request.path)
+        val body = request.body.readUtf8()
+        assertTrue(body.contains("\"nombreCliente\":\"ANA\""))
+        assertTrue(body.contains("\"idServicios\":[1,2]"))
+        assertEquals(1, server.requestCount)
+    }
+
 
     @Test
     fun closedCashDoesNotWriteAnything() = runTest {
@@ -93,7 +143,7 @@ class IngresoRepositoryTest {
         respond(201, """{"idTurno":123,"numeroTurno":"T-20261028-001"}""")
         respond(201, "{}")
         respond(201, "{}")
-        var pending: String? = null
+       var pending: String? = null
         val saved = repository.register(valid) { pending = it }
         assertEquals(123, saved.idTurno)
         assertEquals("T-20261028-001", pending)
@@ -106,7 +156,7 @@ class IngresoRepositoryTest {
         assertEquals(BigDecimal("30000.50"), payload["valor"].asBigDecimal)
         assertEquals(30, payload["idCajaDiaria"].asInt)
         assertFalse(payload["pagado"].asBoolean)
-        assertEquals(listOf(1, 2), requests.drop(4).map {
+        assertEquals(listOf(1, 2), requests.drop(4).take(2).map {
             com.google.gson.JsonParser.parseString(it.body.readUtf8()).asJsonObject["idServicios"].asInt
         })
     }
@@ -144,7 +194,6 @@ class IngresoRepositoryTest {
             .setBody("""{"idTurno":124,"numeroTurno":"T-20261028-008","nombreCliente":"","numeroCelular":"","placa":"ABC123","fechaHoraIngreso":"2026-10-28T10:30:00","fechaHoraFin":null,"marca":"","numeroOrden":"42","valor":30000.50,"valorBaseComision":0.0,"porcentajeComision":0.0,"valorComision":0.0,"pagado":false,"pagadoNomina":false,"observaciones":"","fechaHoraAsignacionOperario":null,"estado":false,"idTipoVehiculo":3,"idOperario":null,"operadorOcupado":false,"idCajaDiaria":30,"idClienteCredito":null}"""))
         respond(201, """{"idTunoServicios":900,"idServicios":1,"idTurno":124,"isDeleted":false}""")
         respond(201, """{"idTunoServicios":901,"idServicios":2,"idTurno":124,"isDeleted":false}""")
-
         val saved = repository.register(valid) { }
 
         assertEquals(SavedTurn(124, "T-20261028-008"), saved)

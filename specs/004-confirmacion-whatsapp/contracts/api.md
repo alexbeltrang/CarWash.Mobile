@@ -1,11 +1,14 @@
-# Contrato API: notificación WhatsApp
+# Contrato API: notificación por correo
 
 La API CarWash sigue siendo autoridad del ingreso. Estos endpoints no crean ni
 modifican turnos; operan sobre un turno confirmado.
 
+El asunto del correo incluye la placa y la marca del vehículo y no incluye el
+identificador interno ni el número visible del turno.
+
 ## Crear o consultar notificación
 
-`POST /api/Turnos/{idTurno}/notificacion-whatsapp`
+`POST /api/Turnos/{idTurno}/notificacion-email`
 
 La operación es idempotente por `idTurno`. Si ya existe una notificación
 aceptada o entregada, devuelve el estado existente sin llamar nuevamente a Meta.
@@ -25,25 +28,19 @@ Un turno no confirmado devuelve `409`; uno inexistente devuelve `404`.
 
 ## Consultar estado
 
-`GET /api/Turnos/{idTurno}/notificacion-whatsapp`
+`GET /api/Turnos/{idTurno}/notificacion-email`
 
 Devuelve el último estado persistido sin volver a llamar a Meta.
 
 ## Reintento manual
 
-`POST /api/Turnos/{idTurno}/notificacion-whatsapp/reintentar`
+`POST /api/Turnos/{idTurno}/notificacion-email/reintentar`
 
 Solo permite reintentar `FAILED` sin `MessageIdExterno` aceptado y nunca crea
 una segunda notificación.
 
-## Webhook de Meta
-
-`GET /api/webhooks/whatsapp` valida el challenge configurado.
-`POST /api/webhooks/whatsapp` procesa `sent`, `delivered`, `read` y errores por
-`message_id`, responde rápidamente y no registra datos personales.
-
 ## Configuración
 
-`META_WA_GRAPH_VERSION`, `META_WA_PHONE_NUMBER_ID`, `META_WA_ACCESS_TOKEN`,
-`META_WA_TEMPLATE_NAME`, `META_WA_TEMPLATE_LANGUAGE` y `CARWASH_NAME` son
-configuración del servidor/secret store, nunca valores compilados en el APK.
+`Email:Host`, `Email:Port`, `Email:Username`, `Email:Password`,
+`Email:FromAddress`, `Email:FromName`, `Email:EnableSsl` y `Email:MaxAttempts`
+son configuración del servidor/secret store, nunca valores compilados en el APK.

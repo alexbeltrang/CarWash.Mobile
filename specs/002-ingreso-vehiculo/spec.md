@@ -94,7 +94,8 @@ El usuario configura y comprueba la direccion del computador que presta el servi
 - **FR-005**: Consultar y exigir caja activa antes de registrar; no abrir cajas.
 - **FR-006**: Conservar formato diario del turno, estados iniciales y relaciones
   de servicios del flujo original, sin incorporar pagos ni asignar operarios.
-- **FR-007**: Buscar datos e historial por placa, sin mezclar consultas obsoletas.
+- **FR-007**: Buscar datos e historial por placa, sin mezclar consultas obsoletas. El historial muestra solo los 5 servicios mas recientes (limite en API y app).
+- **FR-007a**: Los campos del vehiculo (tipo, cliente, contacto, marca, servicios, valores, observaciones) y el boton Guardar permanecen ocultos/deshabilitados hasta buscar la placa (manual o por camara); cambiar la placa o limpiar el formulario los oculta de nuevo.
 - **FR-008**: Conservar datos ante fallos de lectura y evitar doble envio o reintentos
   de escritura automaticos; distinguir guardado completo de parcial o incierto.
 - **FR-009**: Permitir configurar, probar y recordar el servidor local.

@@ -172,6 +172,17 @@ en el computador porque puede cambiar. Se puede reservar esa IP en DHCP.
 No usar una IP de VPN ni asumir que compartir el nombre de Wi-Fi garantiza
 acceso entre dispositivos: el router debe permitir comunicacion entre clientes.
 
+Para instalar la API en otra maquina hay un instalador `.exe` (`installer\build.ps1` lo genera);
+ver [docs/instalacion-api.md](docs/instalacion-api.md), que tambien documenta la alternativa manual con IIS
+y el script
+[docs/instalar-api.ps1](docs/instalar-api.ps1) automatiza los pasos 2 a 6 (no incluye correo).
+
+En el engranaje de la app se puede indicar un **servidor alternativo** opcional
+(por ejemplo otra IP de la misma API). Si el principal no responde, la app prueba
+el alternativo automaticamente y lo indica en el estado. El boton **Probar conexion**
+consulta `api/TipoVehiculo/GetAll` (solo lectura) y distingue: sin respuesta a
+tiempo (red/firewall), puerto cerrado (API apagada), equipo inalcanzable y error del API.
+
 ### Habilitar el servidor
 
 Inicialmente la API escuchaba solo en `127.0.0.1` y `::1`. Con autorizacion del
@@ -222,6 +233,11 @@ el puerto a Internet. Para uso fuera de esa red o despliegue productivo, prepara
 HTTPS y seguridad del servidor. La app admite HTTPS; rechaza HTTP a dominios
 publicos, credenciales en la URL y redirecciones a otros destinos.
 
+## Asignar operario desde el celular
+
+Al abrir la app se pide usuario y contrasena (los mismos del WinForm). La sesion vive solo en memoria y se pide de nuevo en cada apertura; no se guarda usuario, contrasena ni sesion. Desde el icono de lista se abre "Vehiculos en proceso": el perfil Administrador toca un vehiculo para asignar o reasignar operario; otros perfiles solo consultan. El cobro sigue en el WinForm al entregar el vehiculo.
+
+Requiere una API que incluya `PUT api/Turnos/{id}/Operario` y `EsAdministrador` en el login: reinstalar con `installer\CarWashApi-Setup.exe` (regenerar con `installer\build.ps1`) o publicar la API actual. Detalles en `specs/005-asignacion-operario/`.
 ## Documentacion
 
 - `.specify/memory/constitution.md`: principios del proyecto.
