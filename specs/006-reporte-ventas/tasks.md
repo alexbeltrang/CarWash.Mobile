@@ -287,3 +287,4 @@ No se ejecutan agentes o tareas de implementacion durante esta generacion.
 **Conteos**: 56 tareas: Setup 3, Foundational 13, US1 12, US2 9, US3 10 y Polish 9.
 **Notes**: Actualizar tareas y evidencia conforme se ejecutan. No crear commits sin
 autorizacion. No afirmar pruebas exitosas, precision medida o despliegue sin ejecutarlos.
+- [X] T057 Filtros completos desde tablas (FR-008) y tabla de resumen por forma de pago en API (`resumen`) y pantalla (FR-018); compilacion, pruebas unitarias y lint ejecutados; prueba manual del resumen pendiente de reinstalar el API.

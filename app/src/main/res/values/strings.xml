@@ -97,6 +97,8 @@
     <string name="login_title">Iniciar sesión</string>
     <string name="login_user">Usuario</string>
     <string name="login_password">Contraseña</string>
+    <string name="login_show_password">Mostrar contraseña</string>
+    <string name="login_hide_password">Ocultar contraseña</string>
     <string name="login_submit">Entrar</string>
     <string name="login_error_empty">Escriba usuario y contraseña.</string>
     <string name="login_error_bad">Usuario o contraseña incorrectos.</string>
@@ -155,6 +157,10 @@
     <string name="report_consulted">Consultado: %1$s</string>
     <string name="report_reference">Movimiento %1$d · Turno %2$d</string>
     <string name="report_empty">Sin resultados</string>
+    <string name="report_summary_title">Resumen por forma de pago</string>
+    <string name="report_summary_count">Cobros</string>
+    <string name="report_summary_amount">Importe</string>
+    <string name="report_summary_total">Total</string>
     <string name="report_missing">Sin informar</string>
     <string name="report_load_more">Cargar más</string>
     <string name="report_retry">Reintentar</string>

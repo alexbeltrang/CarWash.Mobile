@@ -2,6 +2,8 @@ package com.carwash.mobile.reportes
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -117,6 +119,31 @@ fun ReporteVentasScreen(
                             Text(stringResource(R.string.report_count, page.count), style = MaterialTheme.typography.titleMedium)
                             Text(stringResource(R.string.report_total, money(page.total)), style = MaterialTheme.typography.titleMedium)
                             Text(stringResource(R.string.report_consulted, page.consultedAt.toString()), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (page.summary.isNotEmpty()) item {
+                        val missing = stringResource(R.string.report_missing)
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("report_summary"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.report_summary_title), style = MaterialTheme.typography.titleMedium)
+                            Row(Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.report_payment), Modifier.weight(2f), style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.report_summary_count), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+                                Text(stringResource(R.string.report_summary_amount), Modifier.weight(1.5f), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+                            }
+                            HorizontalDivider()
+                            page.summary.forEach { row ->
+                                Row(Modifier.fillMaxWidth()) {
+                                    Text(row.paymentMethod ?: missing, Modifier.weight(2f))
+                                    Text(row.count.toString(), Modifier.weight(1f), textAlign = TextAlign.End)
+                                    Text(money(row.total), Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                }
+                            }
+                            HorizontalDivider()
+                            Row(Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.report_summary_total), Modifier.weight(2f), style = MaterialTheme.typography.titleSmall)
+                                Text(page.count.toString(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.End)
+                                Text(money(page.total), Modifier.weight(1.5f), style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.End)
+                            }
                         }
                     }
                     if (state.status == ReportStatus.EMPTY) item { Text(stringResource(R.string.report_empty), Modifier.padding(16.dp)) }

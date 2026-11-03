@@ -41,6 +41,8 @@ data class CollectionItem(
     val amount: BigDecimal,
 )
 
+data class PaymentSummary(val paymentMethodId: Int, val paymentMethod: String?, val count: Long, val total: BigDecimal)
+
 data class SalesPage(
     val criteria: ReportCriteria,
     val count: Long,
@@ -50,6 +52,7 @@ data class SalesPage(
     val pageSize: Int,
     val consultedAt: Instant,
     val businessDate: LocalDate,
+    val summary: List<PaymentSummary> = emptyList(),
 )
 
 enum class ReportErrorKind { INVALID_FILTERS, INVALID_CURSOR, SESSION_REQUIRED, ADMIN_REQUIRED, UNAVAILABLE, NETWORK, INVALID_RESPONSE, UNEXPECTED }

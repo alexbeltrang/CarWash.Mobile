@@ -134,11 +134,15 @@ class ApiReporteVentasRepository(private val session: Session) : ReporteVentasRe
                 item.optionalText("placa"), item.optionalId("idTipoVehiculo"), item.optionalText("tipoVehiculo"),
                 item.optionalId("idOperario"), item.optionalText("operario"), item.id("idFormaPago"), item.optionalText("formaPago"), item.money("montoPagado"))
         } ?: throw ReportError(ReportErrorKind.INVALID_RESPONSE)
+        val summary = body.get("resumen")?.takeUnless { it.isJsonNull }?.asJsonArray?.map { value ->
+            val row = value.asJsonObject
+            PaymentSummary(row.id("idFormaPago"), row.optionalText("formaPago"), row.number("cantidad").longValueExact(), row.money("importe"))
+        }.orEmpty()
         val next = body.optionalText("nextCursor")
         if (count < 0 || size !in 1..200 || items.size > size || items.size > count || items.distinctBy { it.id }.size != items.size
             || (next != null && (next.isBlank() || items.isEmpty())) || applied.invalidFields().isNotEmpty())
             throw ReportError(ReportErrorKind.INVALID_RESPONSE)
-        return SalesPage(applied, count, total, items, next, size, Instant.parse(body.text("consultadoEn")), LocalDate.parse(body.text("fechaOperativa")))
+        return SalesPage(applied, count, total, items, next, size, Instant.parse(body.text("consultadoEn")), LocalDate.parse(body.text("fechaOperativa")), summary)
     }
 
     private fun JsonObject.text(name: String): String {

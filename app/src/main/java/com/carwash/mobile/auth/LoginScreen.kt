@@ -6,7 +6,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +39,7 @@ import com.carwash.mobile.ingreso.normalizeServer
 fun LoginScreen(model: LoginViewModel, serverUrl: String, onServerUrl: (String) -> Unit, onCancelReentry: () -> Unit = model::cancelReentry) {
     val state = model.state
     var server by remember { mutableStateOf(serverUrl) }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, androidx.compose.ui.Alignment.CenterVertically),
@@ -58,8 +68,15 @@ fun LoginScreen(model: LoginViewModel, serverUrl: String, onServerUrl: (String) 
             label = { Text(stringResource(R.string.login_password)) },
             singleLine = true,
             enabled = !state.loading,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { model.submit() }),
+            trailingIcon = {
+                val label = stringResource(if (passwordVisible) R.string.login_hide_password else R.string.login_show_password)
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = label)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
         state.error?.let {

@@ -45,15 +45,14 @@ class ReporteVentasViewModel(private var repository: ReporteVentasRepository, pr
         val criteria = ReportCriteria(state.edited.initialDate, state.edited.finalDate)
         if (!canQuery || session.accessToken == null || criteria.invalidFields().isNotEmpty()) return
         val previous = state.options
-        if (previous != null && previous.initialDate == criteria.initialDate && previous.finalDate == criteria.finalDate && state.optionsError == null) return
+        if (previous != null && state.optionsError == null) return
         optionsJob?.cancel()
         val currentGeneration = ++optionsGeneration
-        state = state.copy(options = null, optionsLoading = true, optionsError = null)
+        state = state.copy(optionsLoading = true, optionsError = null)
         optionsJob = viewModelScope.launch {
             try {
                 val response = repository.options(criteria.initialDate!!, criteria.finalDate!!)
-                if (currentGeneration != optionsGeneration || state.edited.initialDate != criteria.initialDate || state.edited.finalDate != criteria.finalDate) return@launch
-                if (response.initialDate != criteria.initialDate || response.finalDate != criteria.finalDate) throw ReportError(ReportErrorKind.INVALID_RESPONSE)
+                if (currentGeneration != optionsGeneration) return@launch
                 state = state.copy(options = response, optionsLoading = false, optionsError = null)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: ReportError) {

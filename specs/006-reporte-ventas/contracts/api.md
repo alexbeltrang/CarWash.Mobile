@@ -162,6 +162,8 @@ restricciones mas la comparacion lexicografica estricta de esa clave. Un cursor 
 otros criterios o invalido da 400, nunca amplia la consulta. Su codificacion no es
 autorizacion; el servidor valida y parametriza todos sus campos.
 
+resumen agrupa todo el conjunto filtrado por forma de pago (ordenado por nombre); la suma de cantidad e importe coincide con cantidadCobros e importeTotal. Sin coincidencias: resumen=[].
+
 cantidadCobros e importeTotal siempre describen todo el conjunto filtrado actual,
 no la pagina ni las filas posteriores al cursor. Resumen y pagina se leen en una
 transaccion corta por solicitud. ConsultadoEn no promete snapshot entre solicitudes.
