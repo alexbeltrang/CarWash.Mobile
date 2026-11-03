@@ -29,7 +29,8 @@ class AndroidSessionStore(context: Context) : SessionStore {
 
     override fun save(session: Session?) {
         prefs.edit().apply {
-            if (session == null) clear() else {
+            clear()
+            if (session != null) {
                 putInt(USER_ID, session.userId)
                 putString(DISPLAY_NAME, session.displayName)
                 putBoolean(IS_ADMIN, session.isAdmin)

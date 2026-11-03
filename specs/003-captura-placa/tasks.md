@@ -8,7 +8,7 @@
 - [x] T006 Probar permiso/manual, revision, cancelacion, OCR real y regresion.
 - [x] T007 Ejecutar compilacion, lint, pruebas JVM e instrumentadas y revisar emulador.
 - [x] T008 Actualizar documentacion y registrar evidencia y bloqueos reales.
-- [ ] T009 Validar placas reales, luz/reflejos, distancia y enfoque en celular fisico.
+- [x] T009 Validar placas reales, luz/reflejos, distancia y enfoque en celular fisico.
 - [x] T010 Reparar identidad SQLite de TurnoServicios con autorizacion, pruebas y respaldo.
 - [x] T011 Verificar guardado completo y formulario listo para el proximo ingreso.
 - [x] T012 Quitar numero de orden del formulario y enviar siempre cero sin modificar base.
@@ -41,12 +41,12 @@ Verificado el 2026-10-28 en CarWash_API_35, Android 15/API 35:
 - No se generaron ingresos ficticios en datos reales. La captura no modifica
 	endpoints; la reparacion autorizada posterior se detalla a continuacion.
 
-T009 pendiente: no hay celular fisico conectado para certificar precision con
-placas reales, reflejos, baja luz o enfoque. La escena virtual y los bitmaps no
-sustituyen esta comprobacion; no se declara un porcentaje de exactitud.
+T009 completada: el usuario confirmo el 2026-11-03 que la validacion de placas
+reales, luz/reflejos, distancia y enfoque en celular fisico ya fue realizada.
+Esta confirmacion cierra la revision de distintas condiciones que habia quedado
+pendiente tras la primera lectura correcta. No se ejecutaron nuevas pruebas en
+esta actualizacion documental ni se declara un porcentaje de exactitud.
 
-El usuario confirmo lectura correcta de una placa en su celular. T009 sigue
-pendiente como verificacion de distintas condiciones, no como fallo de lectura.
 T010 completada: TurnoServicios tenia 395 IDs NULL y carecia de PRIMARY KEY.
 Prueba aislada exitosa antes de intervenir; respaldo consistente en
 %LOCALAPPDATA%/CarWash/Backups antes de reparar. Se conservaron las 395 asociaciones

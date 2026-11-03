@@ -4,8 +4,8 @@ Base de una app Android nativa con Kotlin, Jetpack Compose, Material 3 y GitHub
 Spec Kit integrado con Copilot. Compatible desde Android 8.0 (API 26).
 
 La pantalla principal es el formulario de ingreso de vehiculos, basado en el
-formulario FrmIngresoVehiculo del sistema existente. Consume la API existente;
-no incluye un backend nuevo, autenticacion ni pagos. El paquete
+formulario FrmIngresoVehiculo del sistema existente. Consume la API existente y
+su autenticacion; no define nuevas reglas de cobro ni un backend independiente. El paquete
 `com.carwash.mobile` es provisional y debe confirmarse antes de publicar.
 
 ## Formulario de ingreso
@@ -52,6 +52,41 @@ El reconocimiento no requiere servidor; las consultas y el registro si.
 Las sugerencias no validan un formato legal ni garantizan exactitud; no se
 sustituyen O/0 ni I/1. Es necesaria la revision humana antes de continuar.
 La captura esta deshabilitada durante guardado o revision de un envio incierto.
+
+## Ventas y sesion temporal
+
+Tras ingresar, Administrador dispone de Ingreso, Vehiculos y Ventas; los demas
+perfiles mantienen sus flujos operativos sin acceso al reporte. Ventas son los
+cobros registrados en `TurnosMovimientos`, no precios de servicios ni ingresos
+de vehiculos. Incluye pagos parciales y Credito como estan registrados.
+
+Seleccionar fecha inicial y final (ambas obligatorias); inicialmente se usa el
+dia operativo informado por la API. Sin opcionales se incluyen todos los cobros
+del periodo. Medio de pago, operario, placa completa y tipo de vehiculo son
+opcionales y se intersectan; Limpiar filtros conserva las fechas. El periodo usa
+la fecha del cobro en la zona operativa del servidor e incluye el dia final.
+
+El resumen muestra cantidad/total globales, no solo la pagina visible. Cargar mas
+continua el detalle sin sumar nuevamente el resumen. Cambiar filtros no consulta
+hasta pulsar Consultar; Actualizar reinicia el recorrido. Es una consulta viva,
+no un snapshot: si cambian los agregados entre paginas se requiere actualizar.
+Solo consulta; no modifica cobros ni envia notificaciones.
+
+La API actualizada devuelve una credencial temporal en el login existente:
+30 minutos de inactividad y 8 horas absolutas por defecto. Token solo en memoria,
+ventas no persistidas; reinicio de API o muerte del proceso requiere reingreso.
+401 limpia ventas y pide autenticacion; 403 retira acceso administrativo sin
+cerrar el ingreso operativo. Cerrar sesion limpia localmente de inmediato e
+intenta revocar en el servidor; sin red no puede confirmar revocacion remota.
+El reporte usa solo el origen emisor, sin redireccion ni servidor alternativo.
+
+Actualizar API, APK y escritorio coordinadamente. Tres GET historicos de
+movimientos tambien requieren Bearer y Administrador: clientes viejos reciben
+401, sin excepciones por compatibilidad. Ver
+[docs/instalacion-api.md](docs/instalacion-api.md) y la evidencia en
+[specs/006-reporte-ventas/quickstart.md](specs/006-reporte-ventas/quickstart.md).
+HTTP privado sigue expuesto a interceptacion; preferir HTTPS con certificado
+confiable y no desactivar validacion TLS.
 
 ## Preparar el equipo
 

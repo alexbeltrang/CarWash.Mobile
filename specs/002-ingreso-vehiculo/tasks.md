@@ -10,9 +10,9 @@
 - [x] T008 Mostrar app con catalogos reales y capturar pantalla en emulador.
 - [x] T009 Documentar configuracion Wi-Fi y limitaciones heredadas.
 - [x] T010 Habilitar escucha LAN de la API con autorizacion explicita del usuario.
-- [ ] T011 Verificar conexion desde celular fisico en la misma Wi-Fi.
-- [ ] T012 Revisar visualmente rotacion, modo oscuro y fuente grande del nuevo formulario.
-- [ ] T013 Usuario revisa perfil de red confiable y permisos necesarios de firewall privado.
+- [x] T011 Verificar conexion desde celular fisico en la misma Wi-Fi.
+- [x] T012 Revisar visualmente rotacion, modo oscuro y fuente grande del nuevo formulario.
+- [x] T013 Usuario revisa perfil de red confiable y permisos necesarios de firewall privado.
 - [x] T014 Corregir desfase de zona horaria usando la fecha operativa de la API.
 
 ## Evidencia
@@ -20,7 +20,8 @@
 - OpenAPI y tres lecturas de catalogos/caja respondieron 200 en localhost:5197.
 - Servidor activo: CarWashApi; inicialmente solo en loopback, luego LAN autorizada.
 - IP Wi-Fi observada: 192.168.1.15 (dinamica, no fijar en la app).
-- No se generaron ingresos ficticios en datos reales; no hubo celular fisico conectado.
+- En la validacion inicial no se generaron ingresos ficticios en datos reales
+	ni hubo celular fisico conectado.
 - Constitucion ampliada a 1.1.0 para integracion de red y privacidad.
 - `:app:testDebugUnitTest`: 14 pruebas sin fallos (8 dominio/HTTP y 6 ViewModel).
 - `:app:assembleDebug :app:lintDebug :app:connectedDebugAndroidTest`: BUILD SUCCESSFUL.
@@ -41,8 +42,11 @@
 - GET tipos por localhost y direccion Wi-Fi: 200 y 6 tipos.
 - Android se conecto usando la IP Wi-Fi; direccion persistida en el emulador.
 - Captura adicional: `app/build/reports/ingreso-conexion-wifi.png`.
-- Wi-Fi clasificada Publica en Windows. No se modifico el perfil ni el firewall;
-	T013 requiere revision/accion manual del usuario, con elevacion si corresponde.
-- T011 requiere celular fisico y revision de T013; la conexion emulada no lo sustituye.
+- En la validacion inicial, Wi-Fi clasificada Publica en Windows; no se modifico
+	el perfil ni el firewall y quedaron por revisar T011 y T013.
+- T011, T012 y T013 completadas: el usuario confirmo el 2026-11-03 que la conexion
+	desde celular fisico, la revision visual y la revision de red/firewall ya fueron
+	realizadas. No se ejecutaron nuevas pruebas ni cambios de red en esta
+	actualizacion documental.
 - La API devuelve `X-Server-Date` en `ByFecha` sin parámetro; el móvil usa esa fecha
   para evitar generar turnos del día UTC cuando el servidor aún está en el día local.

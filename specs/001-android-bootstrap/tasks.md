@@ -8,7 +8,7 @@
 - [x] T006 Descargar Gradle Wrapper oficial y verificar SHA-256 del JAR.
 - [x] T007 Compilar APK y ejecutar Android Lint con JDK 17 y SDK 35.
 - [x] T008 Ejecutar prueba instrumentada en dispositivo o emulador.
-- [ ] T009 Revisar rotacion, fuente grande y temas en dispositivo.
+- [x] T009 Revisar rotacion, fuente grande y temas en dispositivo.
 
 ## Evidencia
 
@@ -30,4 +30,6 @@
 - APK reinstalado tras la limpieza de pruebas y Activity abierta mediante ADB.
 - Inspeccion visual: icono, CarWash e Inicio visibles en vertical y tema claro.
 - Captura local generada: `app/build/reports/carwash-home.png` (no versionada).
-- T009 permanece pendiente; no se ha verificado un celular fisico ni API 26.
+- T009 completada: el usuario confirmo el 2026-11-03 que la revision de rotacion,
+  fuente grande y temas en dispositivo ya fue realizada. No se ejecutaron nuevas
+  pruebas en esta actualizacion documental ni se certifica una version de Android.

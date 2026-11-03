@@ -12,6 +12,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,7 +27,7 @@ import com.carwash.mobile.R
 import com.carwash.mobile.ingreso.normalizeServer
 
 @Composable
-fun LoginScreen(model: LoginViewModel, serverUrl: String, onServerUrl: (String) -> Unit) {
+fun LoginScreen(model: LoginViewModel, serverUrl: String, onServerUrl: (String) -> Unit, onCancelReentry: () -> Unit = model::cancelReentry) {
     val state = model.state
     var server by remember { mutableStateOf(serverUrl) }
     Column(
@@ -68,6 +69,7 @@ fun LoginScreen(model: LoginViewModel, serverUrl: String, onServerUrl: (String) 
                         LoginError.EMPTY -> R.string.login_error_empty
                         LoginError.BAD_CREDENTIALS -> R.string.login_error_bad
                         LoginError.UNREACHABLE -> R.string.login_error_unreachable
+                        LoginError.REPORT_SESSION_REQUIRED -> R.string.login_report_session_required
                     },
                 ),
                 color = MaterialTheme.colorScheme.error,
@@ -75,6 +77,11 @@ fun LoginScreen(model: LoginViewModel, serverUrl: String, onServerUrl: (String) 
         }
         Button(onClick = model::submit, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
             if (state.loading) CircularProgressIndicator(Modifier.padding(2.dp)) else Text(stringResource(R.string.login_submit))
+        }
+        if (state.requiresReentry) {
+            TextButton(onClick = onCancelReentry, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.vehicles_back))
+            }
         }
     }
 }

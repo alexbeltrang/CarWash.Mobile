@@ -25,6 +25,61 @@ Ejecutar todo en PowerShell **como administrador**. Reemplazar los valores en MA
 
 > Version del API con asignacion de operario: incluye `PUT api/Turnos/{id}/Operario` y el campo `EsAdministrador` en `POST api/Auth/login`. La app movil lo requiere para asignar; una API anterior solo permite el ingreso.
 
+## Actualizacion coordinada: reporte de ventas
+
+Esta version agrega `GET /api/Reportes/Ventas` y
+`GET /api/Reportes/Ventas/Filtros`. Ambos requieren `Authorization: Bearer` de
+un Administrador vigente. Fecha inicial/final obligatorias `yyyy-MM-dd`; los
+opcionales idFormaPago/idOperario/placa/idTipoVehiculo se intersectan. El segundo
+GET recibe solo fechas para las opciones historicas. Total decimal textual y
+cantidad son globales; detalle por fecha de cobro, no ingreso del turno.
+
+Tambien se protegen los GET raiz, `{id}` y `GetHistoricoMovimientos` de
+`/api/TurnosMovimientos`. POST/PUT/DELETE mantienen contratos y permisos previos.
+Clientes antiguos sin Bearer reciben 401; no habilitar bypass. Antes de activar
+esta API, preparar escritorio y APK compatibles en una ventana coordinada,
+probarlos juntos y respaldar la base con el procedimiento operativo existente.
+No se ejecuta aqui instalacion, reinicio de servicio ni cambio de firewall.
+
+`POST /api/Auth/login` conserva usuario/contrasena cifrados actuales y agrega
+accessToken/tokenType/expiresAt/idleTimeoutSeconds a respuestas validas.
+`POST /api/Auth/logout` revoca la credencial enviada. Sesiones en memoria:
+inactividad 30 minutos, vida absoluta 8 horas, maximo 10000 sesiones por proceso.
+Configurar opcionalmente Session:IdleTimeoutMinutes, Session:AbsoluteLifetimeHours
+y Session:MaxSessions (variables Session__...); son parametros no secretos.
+Un reinicio invalida todas las sesiones; no se usan refresh tokens ni se guardan
+contrasenas para reingreso automatico. Logout offline limpia cliente pero no
+garantiza revocacion remota.
+
+BusinessTimeZoneId opcional fija la zona operativa; por defecto usa la zona local
+del servidor. Elegir un identificador valido para la instalacion y conservar la
+interpretacion local de fechas existentes; no convertir la base a UTC. El header
+X-Server-Date informa el dia operativo a clientes. No imprimir tokens, cuerpos de
+login, placas ni URLs de reporte; no activar logging sensible de EF.
+
+Preferir HTTPS con certificado confiable. HTTP solo en red privada confiable,
+con riesgo de interceptacion; no desactivar certificados ni publicar el puerto
+en Internet. Los clientes no reenvian el token a alternativos/redirecciones;
+escritorio rechaza lecturas HTTPS protegidas con ApiIgnorarSSL=true.
+Pruebas, configuracion y comandos reproducibles:
+[quickstart](../specs/006-reporte-ventas/quickstart.md).
+
+### Paquete generado y comprobado
+
+Se ejecuto `./installer/build.ps1 -ApiPath (Resolve-Path ../CarWashApi).Path`:
+API y seeder Release win-x64 autocontenidos; Inno Setup 6.7.3 correcto.
+Artefacto: `installer/output/CarWashApi-Setup.exe` (41545946 bytes).
+SHA256: `AFB8DCC0747B7A99C1A11D48234BCDB07024E1A9E270190B7FD006B2303CD44F`.
+No se ejecuto el instalador ni se modifico ningun servicio o firewall.
+
+Esquema SQLite verificado en modo solo lectura, tablas de negocio vacias.
+Staging sin bases operativas, appsettings.Development.json ni valores secretos.
+El binario publicado del paquete se probo como proceso loopback con base temporal:
+login/logout y reporte con APK/escritorio actualizados correctos; cinco GET
+rechazan cliente viejo (401) y no administrador (403), que conserva sus operaciones
+permitidas. Consultas no alteran cobros. APK Debug disponible en
+`app/build/outputs/apk/debug/app-debug.apk`; no es firma de produccion.
+
 ## 1. Publicar (en la maquina de desarrollo)
 
 ```powershell

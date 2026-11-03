@@ -127,11 +127,12 @@ class AsignacionTest {
     }
 
     private class FakeAuthApi(val response: LoginResponse?, val failure: Boolean = false) : AuthApi {
+        override suspend fun logout(authorization: String) = retrofit2.Response.success(Unit)
         var last: LoginRequest? = null
-        override suspend fun login(request: LoginRequest): LoginResponse {
+        override suspend fun login(request: LoginRequest): retrofit2.Response<LoginResponse> {
             last = request
             if (failure) throw IOException("down")
-            return response!!
+            return retrofit2.Response.success(response!!)
         }
     }
 

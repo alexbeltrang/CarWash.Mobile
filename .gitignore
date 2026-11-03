@@ -7,6 +7,17 @@ local.properties
 *.jks
 *.keystore
 captures/
+**/bin/
+**/obj/
+out/
+*.class
+*.log
+.env*
+*.tmp
+*.swp
+Thumbs.db
+.DS_Store
+.vscode/
 # Instalador generado
 installer/staging/
 installer/output/
