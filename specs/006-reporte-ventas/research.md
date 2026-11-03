@@ -84,7 +84,8 @@ tokenType y expiresAt a su respuesta exitosa sin quitar campos. Emitir token opa
 de 32 bytes de RandomNumberGenerator, Base64Url; no usar Guid como secreto.
 Guardar solo SHA-256 del token en registro singleton de sesiones en memoria de API.
 Token en memoria del cliente, nunca en preferencias, SavedState, URL o logs.
-Configurar 30 minutos de inactividad y 8 horas absolutas, con TimeProvider en UTC
+Revision T058: configurar 9 horas absolutas desde cada login, sin caducidad por
+inactividad ni renovacion por uso, con TimeProvider en UTC
 para comprobar limites sin esperas. Limpiar sesiones expiradas y limitar a 10000
 sesiones vigentes; al alcanzar capacidad devolver 503 sin expulsar sesiones vivas.
 
@@ -93,11 +94,13 @@ y PerfilAdministrador en cada solicitud protegida, no confiar en flags del clien
 ni rol almacenado al iniciar sesion. Ausente, expirado o revocado: 401. Perfil no
 administrador con sesion valida: 403. Usuario eliminado invalida sesion con 401.
 
-POST `api/Auth/logout` revoca solo el token presentado. Inactividad, plazo absoluto,
+POST `api/Auth/logout` revoca solo el token presentado. Plazo absoluto,
 logout confirmado o reinicio de API invalidan sesiones. Un cambio de perfil se
 aplica en la siguiente solicitud. Cierre sin red descarta token local sin afirmar
-revocacion remota. Restaurar metadatos de sesion movil no restaura token: el reporte
-pide reingreso, sin cambiar el acceso operativo existente de ingreso.
+revocacion remota. Restaurar metadatos de sesion movil no restaura token: se requiere
+login general. Ventas comparte esa sesion sin login propio; la app cierra toda su
+sesion a las 9 horas y comprueba el plazo al volver de segundo plano. No cierra
+sesiones de otros usuarios.
 
 Ligar token al origen autenticado (esquema, host y puerto), sin reenviarlo al backup
 ni en redirecciones de otro origen. Mantener restricciones existentes de transporte;

@@ -2,6 +2,9 @@ package com.carwash.mobile.ingreso
 
 import android.content.Context
 import android.util.Size
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
+import android.view.View
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
@@ -147,6 +150,15 @@ internal class PlateCamera(
         if (active) camera?.cameraControl?.enableTorch(enabled)
     }
 
+    fun zoom(scaleFactor: Float) {
+        if (!active || !scaleFactor.isFinite() || scaleFactor <= 0f) return
+        val bound = camera ?: return
+        val state = bound.cameraInfo.zoomState.value ?: return
+        bound.cameraControl.setZoomRatio(
+            (state.zoomRatio * scaleFactor).coerceIn(state.minZoomRatio, state.maxZoomRatio),
+        )
+    }
+
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     fun takePhoto() {
         if (!active || capturing || camera == null) return
@@ -204,5 +216,34 @@ internal class PlateCamera(
         const val FRAME_INTERVAL_MS = 500L
         const val STABLE_HITS = 2
         val VALID_PLATE = Regex("[A-Z]{3}[0-9]{2}[0-9A-Z]")
+    }
+}
+
+internal fun plateCameraTouchListener(
+    context: Context,
+    onZoom: (Float) -> Unit,
+    onFocus: (Float, Float) -> Unit,
+): View.OnTouchListener {
+    var pinching = false
+    val detector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+            pinching = true
+            return true
+        }
+
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+            onZoom(detector.scaleFactor)
+            return true
+        }
+    }).apply { isQuickScaleEnabled = false }
+    return View.OnTouchListener { target, event ->
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) pinching = false
+        if (event.pointerCount > 1) pinching = true
+        detector.onTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_UP && !pinching) {
+            onFocus(event.x, event.y)
+            target.performClick()
+        }
+        true
     }
 }

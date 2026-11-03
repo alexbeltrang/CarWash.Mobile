@@ -184,7 +184,7 @@ fun ReporteVentasScreen(
                     }
                 }
                 if (state.status == ReportStatus.SESSION_REQUIRED) item {
-                    TextButton(onClick = onReentry) { Text(stringResource(R.string.report_reentry)) }
+                    Text(stringResource(R.string.report_reentry), Modifier.padding(16.dp))
                 }
             }
             item { HorizontalDivider(Modifier.padding(top = 8.dp)) }
@@ -230,7 +230,7 @@ private fun reportErrorText(error: ReportErrorKind?) = when (error) {
 private fun ReportFilterMenu(label: Int, all: Int, selectedId: Int?, options: List<FilterOption>, enabled: Boolean, onSelect: (Int?) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val selectedName = options.firstOrNull { it.id == selectedId }?.name ?: stringResource(R.string.report_missing)
-    val value = if (selectedId == null) stringResource(all) else stringResource(R.string.report_option_value, selectedName, selectedId)
+    val value = if (selectedId == null) stringResource(all) else selectedName
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(value = value, onValueChange = {}, readOnly = true, enabled = enabled,
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable), label = { Text(stringResource(label)) },
@@ -239,7 +239,6 @@ private fun ReportFilterMenu(label: Int, all: Int, selectedId: Int?, options: Li
             DropdownMenuItem(text = { Text(stringResource(all)) }, onClick = { onSelect(null); expanded = false })
             options.forEach { option ->
                 DropdownMenuItem(text = { Text(option.name ?: stringResource(R.string.report_missing)) },
-                    trailingIcon = { Text(stringResource(R.string.report_option_id, option.id)) },
                     onClick = { onSelect(option.id); expanded = false })
             }
         }

@@ -29,8 +29,8 @@ esValido, respuesta y usuario; agregar a respuesta exitosa:
 |-------------|------|-------------|
 | accessToken | string | Token opaco aleatorio; solo memoria de cliente |
 | tokenType | string | Bearer |
-| expiresAt | string ISO 8601 UTC | Vencimiento absoluto, por defecto 8 horas |
-| idleTimeoutSeconds | int | 1800 por defecto; puede vencer antes que expiresAt |
+| expiresAt | string ISO 8601 UTC | Cierre absoluto, por defecto 9 horas desde este login |
+| idleTimeoutSeconds | int | Campo heredado: 32400 por defecto; sin vencimiento por inactividad |
 
 Login exitoso: 200 con campos anteriores y los nuevos. Credenciales invalidas:
 mantener 200/esValido=false, sin token. Capacidad de sesiones agotada o dependencia
@@ -52,7 +52,8 @@ Authorization: Bearer con token de esta sesion; sin body.
   una sesion activa que conservar. Esta excepcion idempotente solo aplica a logout.
 
 El cliente descarta token local en todos los casos. Sin respuesta no declara revocacion
-remota; el servidor sigue aplicando inactividad y vencimiento absoluto.
+remota; el servidor aplica vencimiento absoluto sin renovar por actividad. Cada
+sesion vence por su propio login, sin cierre simultaneo de otros usuarios.
 
 ### Politica Administrador
 
@@ -175,7 +176,9 @@ Ediciones concurrentes con agregados iguales pueden no detectarse: reporte vivo.
 
 Solo fechaInicial y fechaFinal obligatorias, con las mismas reglas de rango y perfil.
 No acepta filtros opcionales ni consulta catalogos de operarios disponibles para
-lavado. Obtiene opciones distintas de los cobros del periodo antes de opcionales:
+lavado. Obtiene catalogos completos independientemente de las fechas y cobros,
+ordenados por nombre, con IDs positivos y sin operarios isDelete ni tipos IsDelete.
+FormaPago no tiene indicador de eliminacion en el modelo actual:
 
 ```json
 {
@@ -188,9 +191,11 @@ lavado. Obtiene opciones distintas de los cobros del periodo antes de opcionales
 }
 ```
 
-Listas vacias cuando no hay datos. Incluir ids positivos historicos aunque catalogo
-inactivo; nombre nullable si falta la descripcion. No inventar ids para relaciones
-ausentes. Todas/Todos y Sin informar son textos de UI, no filas ficticias de datos.
+Un periodo sin cobros no vacia estos catalogos. Nombre nullable si falta descripcion;
+no inventar IDs para relaciones ausentes. La UI muestra solo nombres y conserva
+IDs para enviar filtros. Todas/Todos y Sin informar son textos de UI, no filas
+ficticias. La exclusion de eliminados solo afecta opciones: no quita cobros historicos
+del reporte sin filtros ni impide consultar un ID historico positivo explicitamente.
 
 ## Errores y operacion
 

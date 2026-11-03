@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +28,8 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.carwash.mobile.asignacion.ApiAsignacionRepository
 import com.carwash.mobile.asignacion.AsignacionScreen
 import com.carwash.mobile.asignacion.AsignacionViewModel
@@ -61,6 +64,13 @@ class MainActivity : ComponentActivity() {
                 initializer { LoginViewModel(ApiAuthRepository({ listOf(settings.serverUrl, settings.backupUrl) }), AndroidSessionStore(applicationContext)) }
             })
             val session = login.state.session
+            DisposableEffect(login) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) login.checkSessionExpiry()
+                }
+                lifecycle.addObserver(observer)
+                onDispose { lifecycle.removeObserver(observer) }
+            }
             var destination by rememberSaveable { mutableStateOf(AppDestination.INGRESO) }
             CarWashTheme {
                 if (session == null || login.state.requiresReentry) {
@@ -76,9 +86,14 @@ class MainActivity : ComponentActivity() {
                         initializer { ReporteVentasViewModel(ApiReporteVentasRepository(session), session) }
                     })
                     LaunchedEffect(session) { report.bind(session, ApiReporteVentasRepository(session)) }
+                    DisposableEffect(report, login) {
+                        onDispose { if (login.state.session == null) report.clear() }
+                    }
                     LaunchedEffect(report.state.status, destination) {
                         if (destination == AppDestination.REPORTE && (session.accessToken == null || report.state.status == ReportStatus.SESSION_REQUIRED)) {
-                            login.requestReportReentry()
+                            report.clear()
+                            destination = AppDestination.INGRESO
+                            login.logout()
                         }
                         if (session.isAdmin && report.state.status == ReportStatus.FORBIDDEN) {
                             destination = AppDestination.INGRESO
@@ -92,7 +107,8 @@ class MainActivity : ComponentActivity() {
                         login.logout()
                     }
                     AppNavigation(session.isAdmin, destination, onDestination = { target ->
-                        destination = target
+                        login.checkSessionExpiry()
+                        if (login.state.session != null) destination = target
                     }) {
                         when (if (!session.isAdmin && destination == AppDestination.REPORTE) AppDestination.INGRESO else destination) {
                             AppDestination.INGRESO -> IngresoScreen(model, onOpenVehicles = { destination = AppDestination.VEHICULOS }, onLogout = logout)

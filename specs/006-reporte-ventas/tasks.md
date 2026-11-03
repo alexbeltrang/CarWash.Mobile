@@ -3,7 +3,7 @@
 **Input**: [spec.md](spec.md), [plan.md](plan.md), [research.md](research.md), [data-model.md](data-model.md), [API](contracts/api.md), [UI](contracts/ui.md) y [quickstart.md](quickstart.md).
 
 **Prerequisites**: Diseno aprobado y ampliacion de login autorizada el 2026-11-03.
-**Status**: T001-T056 completadas y verificadas en aislamiento; evidencia y limites en quickstart.md. Sin despliegue productivo.
+**Status**: T001-T060 completadas y verificadas en aislamiento; revision de sesion general y combos, evidencia y limites en quickstart.md. Sin despliegue productivo.
 **Tests**: Incluir pruebas del comportamiento modificado conforme a constitucion III,
 los escenarios de la especificacion y los gates del plan. Escribirlas antes de la
 implementacion correspondiente y comprobar sus fallos; no contar un fallo de entorno
@@ -50,7 +50,7 @@ con lecturas endurecidas sin el escritorio actualizado.
 
 - [X] T004 [P] Escribir en `../CarWashApi.Tests/AuthSessionTests.cs` pruebas del contrato de login aditivo, token invalido, caducidad inactiva/absoluta con reloj falso, concurrencia, capacidad, logout idempotente, reinicio y perfil vigente; comprobar rechazos sin depender de datos reales (despues de T003).
 - [X] T005 [P] Ampliar `app/src/test/java/com/carwash/mobile/auth/AuthRepositoryTest.kt` y `app/src/test/java/com/carwash/mobile/auth/LoginViewModelTest.kt` para token solo en memoria, lectura de X-Server-Date, login sin token, reingreso, logout sin red y ausencia de reenvio de credenciales; conservar regresion del cifrado y servidores existentes (despues de T003).
-- [X] T006 Implementar registro de sesiones en `../CarWashApi/Services/ApiSessionStore.cs` y opciones en `../CarWashApi/Configuration/SessionOptions.cs`: 32 bytes de RandomNumberGenerator, Base64Url, solo SHA-256 almacenado, operaciones atomicas, TimeProvider UTC, 30 minutos inactivo/8 horas absolutas, limpieza de expirados y maximo 10000 sesiones con 503 sin expulsar vigentes (despues de T004).
+- [X] T006 Implementar registro de sesiones en `../CarWashApi/Services/ApiSessionStore.cs` y opciones en `../CarWashApi/Configuration/SessionOptions.cs`: 32 bytes de RandomNumberGenerator, Base64Url, solo SHA-256 almacenado, operaciones atomicas, TimeProvider UTC, 9 horas absolutas sin limite inactivo (revision T058), limpieza de expirados y maximo 10000 sesiones con 503 sin expulsar vigentes (despues de T004).
 - [X] T007 Implementar esquema en `../CarWashApi/Services/SessionAuthenticationHandler.cs` y politica Administrador en `../CarWashApi/Services/AdministradorAuthorizationHandler.cs`, reutilizando `../CarWashApi/Services/PerfilAdministrador.cs`; registrar servicios y UseAuthentication antes de UseAuthorization en `../CarWashApi/Program.cs`, verificando usuario no eliminado y perfil actual en cada lectura (despues de T006).
 - [X] T008 Ampliar `../CarWashApi/Controllers/AuthController.cs` y sus DTO existentes para accessToken/tokenType/expiresAt/idleTimeoutSeconds solo en login exitoso, X-Server-Date y Cache-Control no-store; agregar POST logout idempotente conforme al contrato, sin cambiar credenciales/cifrado, cuerpos heredados ni registrar tokens (despues de T007).
 - [X] T009 Aplicar politica Administrador a todos los GET de `../CarWashApi/Controllers/TurnosMovimientosController.cs`, conservando parametros, respuestas y FechaHoraIngreso del historico; no modificar POST/PUT/DELETE ni imponer autorizacion global a otros controllers (despues de T008).
@@ -107,13 +107,13 @@ recupera todos los cobros del periodo, incluidos sin descripcion e historicos in
 
 ### Tests for User Story 2
 
-- [X] T029 [P] [US2] Ampliar `../CarWashApi.Tests/ReporteVentasTests.cs` con filtros solos/combinados por ids, nombres repetidos, placa completa normalizada, ids positivos inexistentes, ids 0/-1 invalidos y GET Filtros historicos del periodo sin restriccion de activos ni de otros opcionales; verificar autorizacion previa a catalogos.
+- [X] T029 [P] [US2] Ampliar `../CarWashApi.Tests/ReporteVentasTests.cs` con filtros solos/combinados por ids, nombres repetidos, placa completa normalizada, ids positivos inexistentes, ids 0/-1 invalidos y GET Filtros con catalogos independientes del periodo, sin eliminados donde el modelo tiene indicador (revision T057); verificar autorizacion previa a catalogos y cobros historicos conservados.
 - [X] T030 [P] [US2] Ampliar `app/src/test/java/com/carwash/mobile/reportes/ReporteVentasRepositoryTest.kt` para GET Filtros, omision real de query params no seleccionados y parseo de catalogos con nombres null, sin enviar Todas/Todos ni valores centinela al servidor.
 - [X] T031 [P] [US2] Ampliar `app/src/androidTest/java/com/carwash/mobile/ReporteVentasScreenTest.kt` para cuatro opcionales, menus con valores historicos, Limpiar filtros conservando fechas y seleccion mantenida al cambiar a periodo sin esa opcion, sin ampliar la consulta silenciosamente.
 
 ### Implementation for User Story 2
 
-- [X] T032 [US2] Extender `../CarWashApi/DTOs/ReporteVentasDto.cs` y `../CarWashApi/Services/ReporteVentasService.cs` para opciones distintas id/nombre por periodo antes de opcionales, incluyendo ids historicos aunque la descripcion falte; verificar predicados AND y normalizacion de placa sobre datos y consulta sin eliminar cobros por joins (despues de T029-T031).
+- [X] T032 [US2] Extender `../CarWashApi/DTOs/ReporteVentasDto.cs` y `../CarWashApi/Services/ReporteVentasService.cs` para opciones id/nombre desde catalogos completos independientes del periodo, excluyendo eliminados donde existe indicador (revision T057); verificar predicados AND y normalizacion de placa sobre datos y consulta sin eliminar cobros por joins (despues de T029-T031).
 - [X] T033 [US2] Implementar GET `api/Reportes/Ventas/Filtros` en `../CarWashApi/Controllers/ReportesController.cs` con fechas obligatorias, Administrador, fecha operativa, no-store, validacion y errores del contrato; no reutilizar catalogos de operarios disponibles para lavado (despues de T032).
 - [X] T034 [US2] Ampliar `app/src/main/java/com/carwash/mobile/reportes/ReporteVentasModels.kt` y `ReporteVentasRepository.kt` del mismo paquete para cargar opciones por fechas y transmitir las selecciones opcionales por id sin restricciones implicitas (despues de T033).
 - [X] T035 [US2] Extender `app/src/main/java/com/carwash/mobile/reportes/ReporteVentasViewModel.kt` con forma de pago/operario/tipo/placa, carga de opciones por periodo, selecciones conservadas aunque no aparezcan, Limpiar filtros manteniendo fechas y reset de cursor al consultar criterios nuevos (despues de T034).
@@ -164,6 +164,13 @@ son de una consulta viva y los limites de consistencia estan documentados.
 - [X] T054 Regenerar el paquete API con `installer/build.ps1` despues de los gates de T049-T053, comprobar inclusion de login/logout/reporte y documentar artefactos en `docs/instalacion-api.md`; no ejecutar el instalador productivo, reiniciar servicios ni cambiar firewall automaticamente.
 - [X] T055 Recorrer escenarios end-to-end de `specs/006-reporte-ventas/quickstart.md` con API, APK y escritorio actualizados en entorno aislado: Administrador completo, no administrador sin reporte pero con sus flujos permitidos y cliente viejo con 401 sin bypass; verificar que consultas no alteran cobros y registrar resultados reales (despues de T054).
 - [X] T056 Reconciliar evidencia y alcance en `specs/006-reporte-ventas/spec.md`, `plan.md`, `contracts/api.md`, `contracts/ui.md`, `quickstart.md` y `tasks.md` del mismo directorio; marcar solo tareas efectivamente verificadas, conservar bloqueos abiertos y dejar constancia de que no se realizo auditoria global ni despliegue productivo (despues de T055).
+
+## Ajustes solicitados: sesion unica y combos
+
+- [X] T057 Excluir operarios/tipos eliminados en catalogos sin quitar cobros historicos, mostrar nombres sin IDs en combos y verificar seleccion por ID interno.
+- [X] T058 Sesion API de 9 horas desde cada login, sin caducidad por inactividad ni renovacion por uso; probar limites y usuarios independientes.
+- [X] T059 Eliminar reingreso exclusivo del reporte y cerrar toda la sesion movil a las 9 horas, incluso al volver de segundo plano; probar login compartido y limpieza.
+- [X] T060 Verificar JVM/API/UI, compilar y lint; actualizar contratos y evidencia sin desplegar ni reemplazar servicio productivo.
 
 ## Dependencies & Execution Order
 

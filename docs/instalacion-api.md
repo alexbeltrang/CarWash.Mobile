@@ -31,7 +31,9 @@ Esta version agrega `GET /api/Reportes/Ventas` y
 `GET /api/Reportes/Ventas/Filtros`. Ambos requieren `Authorization: Bearer` de
 un Administrador vigente. Fecha inicial/final obligatorias `yyyy-MM-dd`; los
 opcionales idFormaPago/idOperario/placa/idTipoVehiculo se intersectan. El segundo
-GET recibe solo fechas para las opciones historicas. Total decimal textual y
+GET recibe solo fechas y devuelve catalogos independientes del periodo, excluyendo
+operarios/tipos eliminados. FormaPago no tiene indicador de eliminacion. Los
+combos muestran nombres, conservando IDs internos. Total decimal textual y
 cantidad son globales; detalle por fecha de cobro, no ingreso del turno.
 
 Tambien se protegen los GET raiz, `{id}` y `GetHistoricoMovimientos` de
@@ -44,9 +46,13 @@ No se ejecuta aqui instalacion, reinicio de servicio ni cambio de firewall.
 `POST /api/Auth/login` conserva usuario/contrasena cifrados actuales y agrega
 accessToken/tokenType/expiresAt/idleTimeoutSeconds a respuestas validas.
 `POST /api/Auth/logout` revoca la credencial enviada. Sesiones en memoria:
-inactividad 30 minutos, vida absoluta 8 horas, maximo 10000 sesiones por proceso.
-Configurar opcionalmente Session:IdleTimeoutMinutes, Session:AbsoluteLifetimeHours
-y Session:MaxSessions (variables Session__...); son parametros no secretos.
+sin caducidad por inactividad, vida absoluta 9 horas desde cada login, maximo
+10000 sesiones por proceso. El uso no renueva el plazo ni cierra otros usuarios.
+La app usa el login general y cierra toda su sesion al vencer, incluso al volver
+de segundo plano. Configuracion no secreta: Session:AbsoluteLifetimeHours=9 y
+Session:MaxSessions=10000 (variables Session__...). IdleTimeoutMinutes se conserva
+por compatibilidad pero no controla vencimiento; idleTimeoutSeconds=32400 es
+un campo heredado que informa la duracion absoluta, no un limite de inactividad.
 Un reinicio invalida todas las sesiones; no se usan refresh tokens ni se guardan
 contrasenas para reingreso automatico. Logout offline limpia cliente pero no
 garantiza revocacion remota.
@@ -68,17 +74,20 @@ Pruebas, configuracion y comandos reproducibles:
 
 Se ejecuto `./installer/build.ps1 -ApiPath (Resolve-Path ../CarWashApi).Path`:
 API y seeder Release win-x64 autocontenidos; Inno Setup 6.7.3 correcto.
-Artefacto: `installer/output/CarWashApi-Setup.exe` (41545946 bytes).
-SHA256: `AFB8DCC0747B7A99C1A11D48234BCDB07024E1A9E270190B7FD006B2303CD44F`.
+Artefacto actualizado T057-T060: `installer/output/CarWashApi-Setup.exe` (41545444 bytes).
+SHA256: `2D9F8482BAFF6633A0FC6C4B4A4C844AB7716633BF569C121E6B6A593EBBEDB4`.
 No se ejecuto el instalador ni se modifico ningun servicio o firewall.
 
 Esquema SQLite verificado en modo solo lectura, tablas de negocio vacias.
 Staging sin bases operativas, appsettings.Development.json ni valores secretos.
-El binario publicado del paquete se probo como proceso loopback con base temporal:
-login/logout y reporte con APK/escritorio actualizados correctos; cinco GET
-rechazan cliente viejo (401) y no administrador (403), que conserva sus operaciones
-permitidas. Consultas no alteran cobros. APK Debug disponible en
-`app/build/outputs/apk/debug/app-debug.apk`; no es firma de produccion.
+El binario recien publicado se probo como proceso loopback con base temporal:
+login/logout y reporte correctos; cinco GET rechazan cliente viejo (401) y no
+administrador (403), que conserva sus operaciones permitidas. Consultas no alteran
+cobros. Esas dos comprobaciones de paquete/esquema pasaron. Ademas, esta revision
+paso 66 pruebas API, 77 JVM, 41 instrumentadas (una integracion opcional omitida),
+compatibilidad de escritorio y compilacion/lint Android (0 errores, 6 advertencias).
+Los E2E anteriores con ambos clientes quedan como evidencia historica en quickstart.
+APK Debug: `app/build/outputs/apk/debug/app-debug.apk`; no es firma de produccion.
 
 ## 1. Publicar (en la maquina de desarrollo)
 

@@ -12,12 +12,14 @@
   Administrador. Usar un destino explicito, no varios booleanos independientes.
 - Volver desde Reporte regresa a Ingreso sin cerrar la sesion ni alterar un formulario
   existente. Cerrar sesion limpia el reporte, sus resultados y la credencial local.
-- Si solo hay metadatos restaurados y falta token, al entrar a Reporte se solicita
-  reingreso. Conservar destino solicitado y filtros solo en memoria, no contrasena.
+- Ventas comparte el login general, sin autenticacion adicional. La sesion completa
+  cierra a las 9 horas desde ese login, sin caducidad por inactividad ni renovacion
+  por uso. Comprobar el plazo tambien al volver de segundo plano. No cerrar otros
+  usuarios. Metadatos restaurados sin token requieren login general antes de entrar.
 - Cambio de usuario o servidor descarta resultados y token anteriores. No copiar una
   credencial al servidor alternativo. Sesion no administradora no carga opciones.
-- Reingreso conserva el borrador en memoria; un login nuevo tras logout inicializa
-  fechas con el dia operativo y no recupera los filtros descartados.
+- Un login nuevo tras logout inicializa fechas con el dia operativo y no recupera
+  filtros descartados. No persistir credencial ni contrasena para evitar ese login.
 
 ## Filtros
 
@@ -30,9 +32,11 @@
 - Consultar ejecuta solo con fechas validas; muestra error junto al campo faltante o
   rango invertido. No exigir caja abierta, operario, medio de pago ni tipo.
 - Limpiar filtros conserva fechas y quita las cuatro restricciones opcionales.
-- Opciones historicas provienen de Filtros por periodo. Si una seleccion deja de estar
-  disponible tras cambiar fechas, conservarla identificada hasta que el usuario la
-  quite; no ampliar consulta silenciosamente.
+- Filtros devuelve catalogos completos independientes de fechas/cobros, sin operarios
+  ni tipos eliminados. FormaPago no tiene indicador de eliminacion. Mostrar solo
+  nombres, nunca sufijos #ID; conservar IDs internos para la solicitud. Si una
+  seleccion deja de estar disponible, conservarla hasta que el usuario la quite;
+  no ampliar consulta silenciosamente. Los cobros historicos siguen en resultados.
 - Editar controles no consulta automaticamente ni cambia la etiqueta de los criterios
   aplicados a resultados existentes. Marcar esos resultados como anteriores hasta
   pulsar Consultar. Son etiquetas de estado, no instrucciones de uso.
@@ -41,6 +45,8 @@
 
 - Encabezado compacto con periodo aplicado, filtros activos, cantidad de cobros,
   importe total y momento de consulta. No usar hero, graficos ni tarjetas anidadas.
+- Tabla global por forma de pago con nombre, cantidad e importe, incluyendo total;
+  sus valores describen todo el conjunto filtrado, no se acumulan al paginar.
 - Listado vertical con fecha/hora del cobro, placa, tipo, operario, forma de pago e
   importe, sin datos personales adicionales. Identificador de movimiento y turno
   accesibles como referencia del registro. Un movimiento ocupa un item; varios
@@ -63,7 +69,7 @@
 | Resultados | Resumen global y detalle; Consultar, Actualizar y Cargar mas segun estado |
 | Vacio | Sin resultados, cero cobros y cero importe para criterios aplicados |
 | Error | Mensaje y Reintentar conservando criterios; no declarar conjunto vacio |
-| 401 | Solicitar reingreso, limpiar credencial temporal y no mostrar nuevos datos |
+| 401 | Cerrar toda la sesion y limpiar reporte/credencial; volver al login general |
 | 403 | Limpiar reporte y retirar destino; no permitir reintentar como administrador local |
 
 Si falla una pagina adicional, conservar lo ya visto como parcial e indicar que el
@@ -86,7 +92,7 @@ zona horaria y ambos extremos del rango. Fechas de cobro muestran zona del negoc
 
 ViewModel conserva filtros/resultados durante rotacion. No persistir resultados ni
 token en preferencias, Bundle o SavedStateHandle; muerte del proceso pierde esos
-datos y exige reingreso al reporte. Logout local sin red elimina la credencial y no
+datos y exige login general. Logout local sin red elimina la credencial y no
 afirma revocacion remota. Respetar los flujos existentes de ingreso/asignacion.
 
 ## Escritorio

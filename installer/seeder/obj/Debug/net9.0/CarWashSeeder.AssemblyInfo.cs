@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CarWashSeeder")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1af8d1e44c97aebaa104af867f2722e86e71c92d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dfc110cd721d36f703e7637680fb8def68cec327")]
 [assembly: System.Reflection.AssemblyProductAttribute("CarWashSeeder")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CarWashSeeder")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

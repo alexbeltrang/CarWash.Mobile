@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 enum class LoginError { EMPTY, BAD_CREDENTIALS, UNREACHABLE, REPORT_SESSION_REQUIRED }
 
@@ -23,10 +24,13 @@ data class LoginState(
 class LoginViewModel(
     private val repository: AuthRepository,
     private val store: SessionStore = NoSessionStore,
+    private val elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) : ViewModel() {
     private var generation = 0L
     private var loginJob: Job? = null
-    var state by mutableStateOf(LoginState(session = store.load()?.metadata()))
+    private var expiryJob: Job? = null
+    private var closesAt: Long? = null
+    var state by mutableStateOf(LoginState())
         private set
 
     fun updateUser(value: String) { state = state.copy(userName = value, error = null) }
@@ -50,6 +54,12 @@ class LoginViewModel(
                         current.copy(password = "", loading = false, error = LoginError.REPORT_SESSION_REQUIRED)
                     } else {
                         store.save(outcome.session.metadata())
+                        closesAt = elapsedRealtime() + SESSION_DURATION_MILLIS
+                        expiryJob?.cancel()
+                        expiryJob = viewModelScope.launch {
+                            delay(SESSION_DURATION_MILLIS)
+                            logout()
+                        }
                         LoginState(session = outcome.session)
                     }
                 }
@@ -63,6 +73,8 @@ class LoginViewModel(
         val previous = state.session
         generation++
         loginJob?.cancel()
+        expiryJob?.cancel()
+        closesAt = null
         store.save(null)
         state = LoginState()
         if (previous?.accessToken != null) viewModelScope.launch { repository.logout(previous) }
@@ -81,8 +93,16 @@ class LoginViewModel(
     }
 
     fun reportForbidden() {
-        val metadata = state.session?.metadata()?.copy(isAdmin = false)
-        store.save(metadata)
-        state = LoginState(session = metadata)
+        val session = state.session?.copy(isAdmin = false)
+        store.save(session?.metadata())
+        state = LoginState(session = session)
+    }
+
+    fun checkSessionExpiry() {
+        if (closesAt?.let { elapsedRealtime() >= it } == true) logout()
+    }
+
+    private companion object {
+        const val SESSION_DURATION_MILLIS = 9 * 60 * 60 * 1000L
     }
 }

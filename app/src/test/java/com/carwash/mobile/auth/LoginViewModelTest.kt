@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.advanceTimeBy
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -18,13 +19,15 @@ import org.junit.Test
 class LoginViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val credential = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    private fun modelWithClock(repository: AuthRepository, store: SessionStore) =
+        LoginViewModel(repository, store, elapsedRealtime = { dispatcher.scheduler.currentTime })
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test fun successfulLoginKeepsLiveCredentialOnlyInMemory() = runTest(dispatcher) {
         val session = credentialSession()
         val store = MemoryStore()
-        val model = LoginViewModel(object : AuthRepository {
+        val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Success(session)
         }, store)
         model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
@@ -35,10 +38,10 @@ class LoginViewModelTest {
 
     @Test fun restoredMetadataNeverRestoresCredential() = runTest(dispatcher) {
         val store = MemoryStore(credentialSession())
-        val model = LoginViewModel(object : AuthRepository {
+        val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Unreachable
         }, store)
-        assertNotNull(model.state.session)
+        assertNull(model.state.session)
         assertFalse(Gson().toJson(model.state.session).contains(credential))
         model.logout()
         assertNull(model.state.session)
@@ -48,7 +51,7 @@ class LoginViewModelTest {
     @Test fun lateLoginCannotRestoreSessionAfterLogout() = runTest(dispatcher) {
         val pending = CompletableDeferred<LoginOutcome>()
         val store = MemoryStore()
-        val model = LoginViewModel(object : AuthRepository {
+        val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = pending.await()
         }, store)
         model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
@@ -63,9 +66,10 @@ class LoginViewModelTest {
 
     @Test fun reentryWithoutServerCredentialStaysBlockedAndCanReturnToIngreso() = runTest(dispatcher) {
         val metadata = Session(1, "Admin", true, "http://fixture/")
-        val model = LoginViewModel(object : AuthRepository {
+        val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Success(metadata)
         }, MemoryStore(metadata))
+        model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
         model.requestReportReentry()
         assertTrue(model.state.requiresReentry)
         model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
@@ -81,7 +85,7 @@ class LoginViewModelTest {
         val remote = CompletableDeferred<Boolean>()
         var remoteCalls = 0
         val store = MemoryStore()
-        val model = LoginViewModel(object : AuthRepository {
+        val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Success(credentialSession())
             override suspend fun logout(session: Session): Boolean { remoteCalls++; return remote.await() }
         }, store)
@@ -95,20 +99,69 @@ class LoginViewModelTest {
         assertNull(model.state.session)
     }
 
-    @Test fun forbiddenReportRemovesAdminAndCredentialWithoutEndingOperationalSession() = runTest(dispatcher) {
+    @Test fun forbiddenReportRemovesAdminWithoutEndingOrExtendingOperationalSession() = runTest(dispatcher) {
         val store = MemoryStore()
-        val model = LoginViewModel(object : AuthRepository {
+        val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Success(credentialSession())
         }, store)
         model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
         model.reportForbidden()
         assertEquals(1, model.state.session!!.userId)
         assertFalse(model.state.session!!.isAdmin)
-        assertNull(model.state.session!!.accessToken)
+        assertEquals(credential, model.state.session!!.accessToken)
         assertFalse(model.state.requiresReentry)
         assertFalse(store.saved!!.isAdmin)
         assertFalse(Gson().toJson(store.saved).contains(credential))
         assertEquals("", model.state.password)
+        advanceTimeBy(9 * 60 * 60 * 1000L); runCurrent()
+        assertNull(model.state.session)
+    }
+
+    @Test fun entireSessionClosesAtNineHoursWithoutAnyReportLoginOrActivity() = runTest(dispatcher) {
+        val store = MemoryStore()
+        var logins = 0
+        var logouts = 0
+        val model = modelWithClock(object : AuthRepository {
+            override suspend fun login(userName: String, password: String): LoginOutcome { logins++; return LoginOutcome.Success(credentialSession()) }
+            override suspend fun logout(session: Session): Boolean { logouts++; return true }
+        }, store)
+        model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
+        advanceTimeBy(9 * 60 * 60 * 1000L - 1); runCurrent()
+        model.checkSessionExpiry()
+        assertNotNull(model.state.session)
+        assertEquals(1, logins)
+        advanceTimeBy(1); runCurrent()
+        assertNull(model.state.session)
+        assertNull(store.saved)
+        assertFalse(model.state.requiresReentry)
+        assertEquals(1, logouts)
+    }
+
+    @Test fun resumeAfterSleepingPastDeadlineClosesWithoutWaitingForTimer() = runTest(dispatcher) {
+        var elapsed = 0L
+        val store = MemoryStore()
+        val model = LoginViewModel(object : AuthRepository {
+            override suspend fun login(userName: String, password: String) = LoginOutcome.Success(credentialSession())
+        }, store, elapsedRealtime = { elapsed })
+        model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
+        elapsed = 9 * 60 * 60 * 1000L
+        model.checkSessionExpiry()
+        assertNull(model.state.session)
+        assertNull(store.saved)
+    }
+
+    @Test fun newLoginGetsNewNineHoursWithoutAnOldTimerClosingIt() = runTest(dispatcher) {
+        val model = modelWithClock(object : AuthRepository {
+            override suspend fun login(userName: String, password: String) = LoginOutcome.Success(credentialSession())
+        }, MemoryStore())
+        model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
+        advanceTimeBy(8 * 60 * 60 * 1000L); runCurrent()
+        model.logout()
+        model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
+        advanceTimeBy(60 * 60 * 1000L); runCurrent()
+        assertNotNull(model.state.session)
+        advanceTimeBy(8 * 60 * 60 * 1000L); runCurrent()
+        assertNull(model.state.session)
     }
 
     private class MemoryStore(var saved: Session? = null) : SessionStore {

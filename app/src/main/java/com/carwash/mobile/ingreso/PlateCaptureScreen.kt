@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
-import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -238,6 +237,9 @@ private fun LivePlateCamera(
     val camera = remember(context, owner, view) {
         PlateCamera(context, owner, view, { currentReady(it) }, { currentRead(it) }, { currentError() })
     }
+    val touchListener = remember(context, camera) {
+        plateCameraTouchListener(context, camera::zoom, camera::focus)
+    }
     DisposableEffect(camera) {
         onSession(camera)
         camera.start()
@@ -245,13 +247,7 @@ private fun LivePlateCamera(
     }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(factory = { view }, modifier = Modifier.fillMaxSize().testTag("cameraPreview"), update = { preview ->
-            preview.setOnTouchListener { target, event ->
-                if (event.action == MotionEvent.ACTION_UP) {
-                    camera.focus(event.x, event.y)
-                    target.performClick()
-                }
-                true
-            }
+            preview.setOnTouchListener(touchListener)
         })
     }
 }

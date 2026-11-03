@@ -165,11 +165,17 @@ class ReporteVentasScreenTest {
         val model = show(repo)
         rule.onNodeWithText("Filtros opcionales").performClick()
         rule.onNodeWithText("Forma de pago").performScrollTo().performClick()
+        rule.onNodeWithText("#2", substring = true).assertDoesNotExist()
         rule.onNodeWithText("Credito").performClick()
+        rule.onNodeWithText("Credito").assertIsDisplayed()
         rule.onNodeWithText("Operario").performScrollTo().performClick()
+        rule.onNodeWithText("#2", substring = true).assertDoesNotExist()
         rule.onNodeWithText("Operario historico").performClick()
+        rule.onNodeWithText("Operario historico").assertIsDisplayed()
         rule.onNodeWithText("Tipo de vehículo").performScrollTo().performClick()
+        rule.onNodeWithText("#2", substring = true).assertDoesNotExist()
         rule.onNodeWithText("Moto").performClick()
+        rule.onNodeWithText("Moto").assertIsDisplayed()
         rule.onNodeWithTag("report_plate").performScrollTo().performTextInput(" abc123 ")
         rule.onNodeWithText("Consultar").performScrollTo().performClick()
         rule.waitUntil(5_000) { repo.requests.isNotEmpty() }
@@ -261,11 +267,12 @@ class ReporteVentasScreenTest {
         assertEquals(3, repo.requests.size)
     }
 
-    @Test fun unauthorizedResponseClearsDetailAndOffersReentry() {
+    @Test fun unauthorizedResponseClearsDetailWithoutOfferingReportLogin() {
         val repo = FakeRepo().apply { behavior = { _, _ -> throw ReportError(ReportErrorKind.SESSION_REQUIRED) } }
         val model = show(repo)
         rule.onNodeWithText("Consultar").performClick()
-        rule.onNodeWithText("Reingresar para consultar ventas").performScrollTo().assertExists()
+        rule.onNodeWithText("La sesión ha finalizado.").performScrollTo().assertExists()
+        rule.onNodeWithText("Reingresar para consultar ventas").assertDoesNotExist()
         rule.runOnIdle { assertEquals(null, model.state.page) }
     }
 

@@ -131,10 +131,8 @@
     <string name="report_all_operators">Todos</string>
     <string name="report_all_types">Todos</string>
     <string name="report_clear_filters">Limpiar filtros</string>
-    <string name="report_options_unavailable">No se pudieron cargar las opciones del período.</string>
+    <string name="report_options_unavailable">No se pudieron cargar las opciones de filtros.</string>
     <string name="report_options_retry">Reintentar opciones</string>
-    <string name="report_option_value">%1$s · #%2$d</string>
-    <string name="report_option_id">#%1$d</string>
     <string name="report_applied_payment">Forma de pago: #%1$d</string>
     <string name="report_applied_operator">Operario: #%1$d</string>
     <string name="report_applied_type">Tipo de vehículo: #%1$d</string>
@@ -169,7 +167,7 @@
     <string name="report_previous">Resultados anteriores</string>
     <string name="report_partial">Recorrido incompleto</string>
     <string name="report_changed">Los cobros cambiaron durante la consulta.</string>
-    <string name="report_reentry">Reingresar para consultar ventas</string>
+    <string name="report_reentry">La sesión ha finalizado.</string>
     <string name="report_admin_only">Solo el administrador puede consultar ventas.</string>
     <string name="report_invalid_filters">Revise los filtros de la consulta.</string>
     <string name="report_invalid_cursor">La continuación ya no es válida. Actualice la consulta.</string>

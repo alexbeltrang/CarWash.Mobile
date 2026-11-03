@@ -88,9 +88,10 @@ estables el recorrido devuelve todos los movimientos una sola vez.
 ## Opciones de filtros
 
 Tres listas de pares id/nombre nullable: formasPago, operarios y tiposVehiculo.
-Proceden de movimientos del periodo antes de aplicar opcionales y de sus relaciones
-descriptivas, sin excluir catalogos retirados. Claves historicas positivas se pueden
-conservar aunque falte la descripcion. No se inventan claves para datos ausentes.
+Proceden de catalogos completos independientes de fechas/cobros, con IDs positivos,
+excluyendo Operarios.isDelete y TipoVehiculo.IsDelete. FormaPago no tiene indicador
+de eliminacion. Mostrar nombres sin IDs; conservar IDs para enviar filtros. Esta
+exclusion no elimina cobros historicos del reporte. No inventar claves ausentes.
 Seleccion opcional no disponible tras cambiar periodo se mantiene hasta que el usuario
 la quite: nunca ampliar silenciosamente una consulta eliminando su filtro.
 
@@ -102,18 +103,19 @@ Registro efimero, sin tabla ni migracion:
 |---------------|------|-------|
 | tokenHash | SHA-256 | Clave de 32 bytes aleatorios emitidos; no conservar token plano en registro |
 | userId | int | Identidad obtenida de login, no del cliente de reporte |
-| createdAtUtc | DateTimeOffset | Reloj TimeProvider; origen del limite absoluto |
-| lastSeenAtUtc | DateTimeOffset | Solo se actualiza al validar sesion no expirada |
-| absoluteExpiresAtUtc | DateTimeOffset | createdAt + 8 horas por defecto |
+| absoluteExpiresAtUtc | DateTimeOffset | TimeProvider al emitir + 9 horas por defecto |
 
-Limite inactivo: 30 minutos por defecto; comparar ambos limites antes de actualizar
-lastSeen. Limpieza periodica y operaciones concurrentes seguras. Maximo 10000 sesiones
+Sin limite por inactividad ni renovacion por uso; expira cuando now >= absoluteExpires.
+Cada login tiene su propio plazo. Limpieza periodica y operaciones concurrentes seguras. Maximo 10000 sesiones
 vivas; rechazar nuevo login con 503 si la capacidad esta ocupada, sin expulsar sesiones
 vigentes. Reiniciar API elimina sesiones y obliga a reingresar. Usuario eliminado
 invalida la sesion; rol vigente se consulta en cada solicitud y no se toma del cache.
 
 Los clientes guardan el token solo en memoria junto con su origen autenticado;
-AndroidSessionStore conserva sus metadatos existentes pero no el token. No hay
+AndroidSessionStore conserva sus metadatos existentes pero no el token. Los metadatos
+no restauran una sesion autenticada tras muerte del proceso: se exige login general.
+La app usa reloj monotono para cerrar toda su sesion a las 9 horas, incluido al
+volver de segundo plano; Ventas no tiene login separado. No hay
 refresh token ni login automatico con contrasenas guardadas. HTTPS recomendado;
 el transporte HTTP privado permitido sigue siendo un riesgo de escucha en LAN.
 

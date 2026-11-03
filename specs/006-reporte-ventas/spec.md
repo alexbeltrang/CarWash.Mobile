@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-03
 
-**Status**: Implementada y verificada en aislamiento - T001-T056 completadas. APK y paquete API generados; metricas y E2E con escritorio verificados. Alcance/limites en quickstart. No desplegado.
+**Status**: T001-T060 completadas y verificadas en aislamiento. Revision vigente: sesion general de 9 horas y combos sin eliminados ni IDs visibles. APK y paquete API regenerados; evidencia actual separada de metricas/E2E historicos en quickstart. No desplegado.
 
 **Input**: User description: "Reporte de ventas en la app movil con acceso desde un menu o navegacion apropiada. Filtrar por rango de fechas obligatorio, forma de pago y operario opcionales; evaluar otros filtros utiles. Los filtros no seleccionados incluyen todos sus valores y los seleccionados deben determinar la informacion mostrada."
 
@@ -15,6 +15,7 @@
 - Q: Que se considera una venta? -> A: "Ventas significa cobros, esos cobros quedan en la tabla TurnosMovimientos". El reporte consulta los movimientos de cobro y aplica el periodo a su fecha de cobro, no a la fecha de ingreso del turno.
 - Q: Quien puede consultar el reporte? -> A: Solo el perfil Administrador.
 - Q: Se autoriza ampliar el login existente con una sesion temporal validada por el servidor, sin guardar contrasenas, y contemplar compatibilidad con escritorio? -> A: Si, autorizado por el usuario el 2026-11-03.
+- Q: Desde cuando se cuentan las 9 horas? -> A: Desde el login de cada usuario; sin caducidad por inactividad. Al vencer se cierra toda su sesion en la app, no las sesiones de otros usuarios. Ventas comparte el login general sin reingreso propio.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -93,7 +94,7 @@ de la consulta a la que pertenecen los resultados.
 - Ingreso y cobro en dias distintos: se aplica exclusivamente la fecha del cobro, sin sustituirla silenciosamente por la fecha de ingreso del turno.
 - Varios cobros de un turno, incluso con distintas formas de pago: cada movimiento se filtra por su fecha, forma de pago e importe propios, sin repetir el valor completo del turno.
 - Venta sin fecha o importe necesarios para clasificarla: no se inventan valores; se informa la limitacion si impide un resultado confiable.
-- Operario inactivo o forma de pago retirada con ventas historicas: deben poder consultarse los valores presentes en el periodo, no solo los disponibles para nuevas operaciones.
+- Los combos excluyen operarios y tipos eliminados (isDelete/IsDelete); formas de pago no expone ese campo en el modelo existente. Esto no elimina cobros historicos del resultado sin filtros. Los combos muestran solo nombres y usan IDs internamente.
 - Combinacion sin coincidencias: no se ignora ningun filtro para mostrar resultados.
 - Cambio rapido de filtros: una consulta anterior no reemplaza resultados de una consulta posterior.
 - Importes y precision: se conservan los importes registrados y no se duplican ni se recalculan con las tarifas actuales.
@@ -112,7 +113,7 @@ de la consulta a la que pertenecen los resultados.
 - **FR-005**: Forma de pago y operario MUST ser filtros opcionales con Todas/Todos como estado inicial; no seleccionar un valor MUST significar ausencia de restriccion de ese campo, incluso para registros con ese dato sin informar.
 - **FR-006**: El reporte MUST ofrecer placa y tipo de vehiculo como filtros adicionales opcionales. Placa MUST buscar coincidencia completa ignorando mayusculas y espacios exteriores; vacia MUST no restringir. Tipo de vehiculo MUST permitir Todos o un tipo especifico.
 - **FR-007**: Todos los filtros seleccionados MUST combinarse por interseccion con el rango de fechas. Limpiar filtros MUST retirar solo las restricciones opcionales y conservar las fechas.
-- **FR-008**: Las opciones de forma de pago, operario y tipo de vehiculo MUST cargarse completas desde las tablas de formas de pago, operarios y tipos de vehiculo, sin depender de las fechas elegidas ni de que existan ventas en el periodo, e incluir valores historicos aunque ya no esten activos.
+- **FR-008**: Las opciones MUST cargarse desde los catalogos completos, sin depender de fechas ni de ventas existentes; MUST excluir registros con isDelete/IsDelete donde el modelo disponga de ese campo. Los combos MUST mostrar solo nombres, sin sufijos de ID; el ID se conserva para seleccion y envio a API. Esto MUST no excluir cobros historicos del reporte sin filtros.
 - **FR-009**: El detalle MUST mostrar una fila por movimiento de cobro con identificador de movimiento, identificador de turno, fecha de cobro, placa, tipo de vehiculo, operario, forma de pago e importe cobrado; los datos descriptivos ausentes MUST mostrarse como Sin informar y no provocar que se pierdan cobros elegibles.
 - **FR-010**: El reporte MUST mostrar cantidad de cobros e importe total de todos los movimientos filtrados, no solo del detalle visible; MUST mantener la precision monetaria registrada, contar cada cobro una sola vez aunque el turno tenga varios servicios y conservar por separado los distintos cobros de un mismo turno.
 - **FR-011**: El detalle MUST ordenarse por fecha de cobro de mas reciente a mas antiguo y desempatar por identificador de movimiento descendente; todos los registros coincidentes MUST ser accesibles sin truncamiento silencioso.
@@ -121,7 +122,7 @@ de la consulta a la que pertenecen los resultados.
 - **FR-014**: El reporte MUST ser de solo lectura y funcionar sin caja abierta; MUST no registrar cobros, cambiar turnos, recalcular comisiones ni alterar los flujos existentes.
 - **FR-015**: La vista MUST permitir consultar y leer resultados con orientacion vertical u horizontal, tema claro u oscuro y fuente ampliada sin ocultar filtros o acciones esenciales.
 - **FR-016**: El reporte MUST limitar los datos personales mostrados a los necesarios para revisar ventas; no MUST incluir telefono, correo ni credenciales.
-- **FR-017**: El login existente MUST poder establecer una sesion temporal verificable por el servidor, sin nuevos usuarios o proveedores de identidad ni almacenamiento de contrasenas. Las consultas protegidas MUST rechazar sesiones ausentes, vencidas o revocadas, comprobar el perfil vigente y permitir reingresar; cerrar sesion MUST descartar la credencial local inmediatamente y revocarla en servidor al confirmar la solicitud. Sin conexion MUST no afirmarse una revocacion remota y la credencial MUST seguir limitada por su vencimiento. Los cambios MUST contemplar la actualizacion coordinada de escritorio y conservar sus flujos permitidos sin dejar accesos alternos de consulta del reporte sin proteccion.
+- **FR-017**: El login general MUST establecer una sesion verificable de 9 horas desde el inicio de sesion de cada usuario, sin caducidad por inactividad ni login adicional para Ventas. Al cumplirse el plazo MUST cerrarse toda su sesion movil, no solo el reporte. El uso MUST no renovar el plazo ni cerrar sesiones de otros usuarios. No guardar tokens/contrasenas; tras muerte de proceso sin credencial se requiere login general, no uno particular del reporte. Las consultas MUST mantener validacion Administrador y rechazo de sesiones revocadas/vencidas. Logout MUST limpiar localmente de inmediato y confirmar revocacion remota solo con respuesta. Mantener compatibilidad coordinada de API/escritorio y permisos operativos existentes.
 - **FR-018**: Con resultados, el reporte MUST mostrar una tabla de resumen agrupada por forma de pago con cantidad de cobros e importe por grupo y una fila de total, calculada sobre todos los movimientos filtrados (no solo la pagina cargada), de modo que la suma de los grupos coincida con cantidad e importe totales.
 
 ### Key Entities

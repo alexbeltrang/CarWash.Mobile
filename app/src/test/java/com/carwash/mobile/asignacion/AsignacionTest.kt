@@ -160,7 +160,7 @@ class AsignacionTest {
         var outcome: LoginOutcome = LoginOutcome.BadCredentials
         val model = LoginViewModel(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = outcome
-        })
+        }, elapsedRealtime = { dispatcher.scheduler.currentTime })
         model.submit()
         assertEquals(LoginError.EMPTY, model.state.error)
         model.updateUser("u"); model.updatePassword("p"); model.submit(); runCurrent()
@@ -179,17 +179,17 @@ class AsignacionTest {
         override fun save(session: Session?) { saved = session }
     }
 
-    @Test fun sessionIsRememberedAcrossRestartsUntilLogout() = runTest(dispatcher) {
+    @Test fun processRestartRequiresGeneralLoginBecauseCredentialIsNotPersisted() = runTest(dispatcher) {
         val store = MemoryStore()
         val repo = object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Success(admin)
         }
-        val first = LoginViewModel(repo, store)
+        val first = LoginViewModel(repo, store, elapsedRealtime = { dispatcher.scheduler.currentTime })
         first.updateUser("u"); first.updatePassword("p"); first.submit(); runCurrent()
         assertEquals(admin, store.saved)
 
         val restarted = LoginViewModel(repo, store)
-        assertEquals(admin, restarted.state.session)
+        assertNull(restarted.state.session)
 
         restarted.logout()
         assertNull(store.saved)

@@ -72,13 +72,20 @@ hasta pulsar Consultar; Actualizar reinicia el recorrido. Es una consulta viva,
 no un snapshot: si cambian los agregados entre paginas se requiere actualizar.
 Solo consulta; no modifica cobros ni envia notificaciones.
 
-La API actualizada devuelve una credencial temporal en el login existente:
-30 minutos de inactividad y 8 horas absolutas por defecto. Token solo en memoria,
-ventas no persistidas; reinicio de API o muerte del proceso requiere reingreso.
-401 limpia ventas y pide autenticacion; 403 retira acceso administrativo sin
+La API actualizada devuelve una credencial temporal en el login general existente:
+9 horas desde cada login, sin caducidad por inactividad ni renovacion por uso.
+Ventas no solicita un login propio. Al vencer se cierra toda la sesion movil,
+tambien al volver de segundo plano; no se cierran las sesiones de otros usuarios.
+Token solo en memoria, ventas no persistidas; reinicio de API o muerte del proceso
+requiere login general. 401 cierra la sesion; 403 retira acceso administrativo sin
 cerrar el ingreso operativo. Cerrar sesion limpia localmente de inmediato e
 intenta revocar en el servidor; sin red no puede confirmar revocacion remota.
 El reporte usa solo el origen emisor, sin redireccion ni servidor alternativo.
+
+Los combos muestran solo nombres y envian IDs internamente. Sus catalogos son
+independientes del periodo y excluyen operarios/tipos eliminados. FormaPago no
+tiene indicador de eliminacion en el modelo actual. Esto no excluye cobros
+historicos del resultado sin filtros.
 
 Actualizar API, APK y escritorio coordinadamente. Tres GET historicos de
 movimientos tambien requieren Bearer y Administrador: clientes viejos reciben

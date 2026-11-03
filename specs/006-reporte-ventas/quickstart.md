@@ -1,10 +1,48 @@
 # Quickstart: Validacion del reporte de ventas
 
 **Date**: 2026-11-03
-**Status**: T001-T056 implementadas/verificadas en aislamiento. Guion creado durante
-planificacion; evidencia de ejecucion posterior documentada abajo. Sin despliegue.
+**Status**: T001-T060 implementadas/verificadas en aislamiento. Revision vigente
+documentada primero; checkpoints anteriores conservan evidencia historica. Sin despliegue.
 
 Referencias: [modelo](data-model.md), [API](contracts/api.md), [UI](contracts/ui.md).
+
+## Revision vigente: sesion unica y combos (T057-T060)
+
+Esta revision sustituye las politicas historicas de 30 minutos/8 horas y opciones
+historicas por periodo descritas en checkpoints anteriores de este documento.
+Ventas usa el login general: cierre de toda la sesion movil a las 9 horas desde
+cada login, sin caducidad por inactividad ni renovacion por uso. La vuelta de
+segundo plano comprueba el plazo; no cierra otros usuarios. Muerte del proceso
+requiere login general, porque la credencial no se persiste.
+
+Combos con nombres sin sufijos de ID, seleccion/envio por ID interno. Catalogos
+independientes del periodo, excluyendo Operarios.isDelete/TipoVehiculo.IsDelete.
+FormaPago no dispone de ese indicador. Los cobros historicos siguen consultables.
+
+Verificacion ejecutada en aislamiento:
+
+- Suite API: 66/66 correctas; incluye 29 pruebas de sesiones, limite de 9 horas,
+   inactividad, actividad que no renueva y usuarios con plazos independientes.
+- Android: 77 JVM y 41 instrumentadas correctas, 0 fallos; una integracion opcional
+   omitida sin URL de fixture. assembleDebug y lintDebug correctos (0 errores,
+   6 advertencias). Conteos contrastados con XML, AVD API 35.
+- DesktopCompatibilityTests: 1/1 correcta con reloj de fixture de 9 horas;
+   historico, cobro existente y revocacion, sin modificar servicio productivo.
+- Comandos: gate Gradle completo :app:testDebugUnitTest :app:assembleDebug
+   :app:lintDebug :app:connectedDebugAndroidTest; dotnet test con --artifacts-path
+   temporal, y filtro FullyQualifiedName~DesktopCompatibilityTests con
+   -p:RunDesktopCompatibilityTests=true.
+- Paquete regenerado con installer/build.ps1, Inno Setup 6.7.3 correcto.
+   InstallerSchemaContainsNoBusinessData y PackagedApiKeepsPermissionsAndQueriesReadOnly:
+   2/2 correctas sobre el nuevo binario, base temporal y loopback. Cinco GET con
+   401/403, lectura sin alterar cobros y logout revocado. No se repitieron los E2E
+   completos de ambos clientes contra este paquete; sus resultados anteriores son historicos.
+- Instalador: installer/output/CarWashApi-Setup.exe, 41545444 bytes,
+   SHA256 2D9F8482BAFF6633A0FC6C4B4A4C844AB7716633BF569C121E6B6A593EBBEDB4.
+- APK Debug: app/build/outputs/apk/debug/app-debug.apk, 64350672 bytes,
+   SHA256 109073A2455D6E653F334EEDEF67A876871D05D90A17CFDB4E403339BEC6A59F.
+- Staging sin bases operativas, Development ni valores secretos detectados.
+   Instalador no ejecutado; servicio productivo, firewall y base real sin cambios.
 
 ## Prerrequisitos
 

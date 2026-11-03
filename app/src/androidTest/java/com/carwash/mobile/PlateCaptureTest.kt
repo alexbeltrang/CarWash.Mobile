@@ -6,12 +6,17 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.view.View
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -20,10 +25,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.carwash.mobile.ingreso.PlateReviewContent
 import com.carwash.mobile.ingreso.PlateTextReader
+import com.carwash.mobile.ingreso.plateCameraTouchListener
 import com.carwash.mobile.ui.theme.CarWashTheme
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
@@ -39,6 +49,38 @@ class PlateCaptureTest {
     val composeRule = createComposeRule()
     private var confirmed: String? = null
     private var retried = false
+    private val zoomFactors = mutableListOf<Float>()
+    private val focusPoints = mutableListOf<Pair<Float, Float>>()
+    private var previewClicks = 0
+
+    @Test
+    fun twoFingerZoomInAndOutDoesNotTriggerFocusOrClick() {
+        touchPreview()
+        pinchPreview(zoomIn = true)
+        composeRule.runOnIdle {
+            assertTrue("No se detecto acercamiento", zoomFactors.any { it > 1f })
+            zoomFactors.clear()
+        }
+        pinchPreview(zoomIn = false)
+        composeRule.runOnIdle {
+            assertTrue("No se detecto alejamiento", zoomFactors.any { it < 1f })
+            assertTrue(focusPoints.isEmpty())
+            assertEquals(0, previewClicks)
+        }
+    }
+
+    @Test
+    fun singleTapStillFocusesAfterZoomGesture() {
+        touchPreview()
+        pinchPreview(zoomIn = true)
+        composeRule.onNodeWithTag("touchPreview").performTouchInput { click(center) }
+        composeRule.runOnIdle {
+            assertEquals(1, focusPoints.size)
+            assertTrue(focusPoints.single().first > 0f)
+            assertTrue(focusPoints.single().second > 0f)
+            assertEquals(1, previewClicks)
+        }
+    }
 
     @Test
     fun reviewRequiresConfirmationAndPreservesCorrectedCharacters() {
@@ -114,6 +156,39 @@ class PlateCaptureTest {
         } finally {
             source.recycle()
             rotated.recycle()
+        }
+    }
+
+    private fun touchPreview() {
+        composeRule.setContent {
+            AndroidView(
+                factory = { context ->
+                    View(context).apply {
+                        setOnClickListener { previewClicks++ }
+                        setOnTouchListener(plateCameraTouchListener(
+                            context,
+                            onZoom = { zoomFactors += it },
+                            onFocus = { horizontal, vertical -> focusPoints += horizontal to vertical },
+                        ))
+                    }
+                },
+                modifier = Modifier.fillMaxSize().testTag("touchPreview"),
+            )
+        }
+    }
+
+    private fun pinchPreview(zoomIn: Boolean) {
+        composeRule.onNodeWithTag("touchPreview").performTouchInput {
+            val near = width * .12f
+            val far = width * .38f
+            val start = if (zoomIn) near else far
+            val end = if (zoomIn) far else near
+            pinch(
+                start0 = center + Offset(-start, 0f),
+                end0 = center + Offset(-end, 0f),
+                start1 = center + Offset(start, 0f),
+                end1 = center + Offset(end, 0f),
+            )
         }
     }
 

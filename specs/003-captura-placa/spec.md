@@ -27,6 +27,10 @@ se consulta el vehiculo pero no se registra ningun ingreso.
 3. **Given** placa revisada, **When** confirma, **Then** completa placa y busca sus
    datos por el flujo existente; servicios, validaciones y guardado siguen vigentes.
 4. **Given** una captura cancelada, **When** vuelve, **Then** conserva el borrador anterior.
+5. **Given** la camara lista, **When** separa o junta dos dedos en la vista previa,
+   **Then** acerca o aleja dentro del rango del hardware, sin activar enfoque al
+   terminar el gesto; un toque simple sigue enfocando. Captura, OCR, linterna,
+   revision, confirmacion y cancelacion mantienen su comportamiento.
 
 ### User Story 2 - Continuar manualmente (Priority: P1)
 
@@ -83,6 +87,9 @@ El recepcionista puede escribir la placa sin depender de camara o reconocimiento
   cuando realmente falla la comunicacion o el servidor.
 - **FR-013**: El ingreso no muestra ni requiere numero de orden; registra ese campo
   siempre en cero segun el contrato 002, sin modificar la API o base de datos.
+- **FR-014**: Permitir zoom por gesto de dos dedos en la camara de placa, limitado
+  al minimo/maximo de CameraX. Mantener enfoque por toque sin dispararlo al terminar
+  zoom; no cambiar OCR, captura, linterna, revision, confirmacion ni ingreso manual.
 
 ### Key Entities
 

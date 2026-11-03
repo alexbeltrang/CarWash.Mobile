@@ -20,6 +20,14 @@ Camara disponible -> captura -> reconocimiento -> revision editable.
 Error/vacio -> reintento o manual. Salir cancela entrega de resultados tardios.
 Una captura simultanea; liberar camara al mostrar revision o abandonar.
 
+## Zoom en vista previa
+
+- Separar/juntar dos dedos acerca/aleja mediante CameraControl.setZoomRatio.
+- Respetar minZoomRatio/maxZoomRatio del hardware; sin efecto antes de estar lista
+  o despues de liberar la camara. Sin zoom disponible, mantener la vista operativa.
+- Un toque simple conserva enfoque; un gesto de dos dedos no enfoca al terminar.
+- No cambia captura, OCR local, linterna, revision, confirmacion, permisos ni API.
+
 ## Datos y red
 
 Fotos solo en memoria, sin galeria ni archivos de cache. OCR incluido en APK.

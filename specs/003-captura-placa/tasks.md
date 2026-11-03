@@ -12,6 +12,8 @@
 - [x] T010 Reparar identidad SQLite de TurnoServicios con autorizacion, pruebas y respaldo.
 - [x] T011 Verificar guardado completo y formulario listo para el proximo ingreso.
 - [x] T012 Quitar numero de orden del formulario y enviar siempre cero sin modificar base.
+- [x] T013 Agregar zoom por gesto de dos dedos limitado al hardware; probar gesto,
+  enfoque conservado, compilacion/lint y regresion de captura sin cambios de flujo.
 
 ## Evidencia
 
@@ -69,3 +71,20 @@ orden; celular ocupa el ancho disponible. El JSON mantiene numeroOrden como cade
 Compose comprueba ausencia del control y dos guardados sin completar orden.
 Gate completo nuevamente exitoso: compilacion, lint, 23 pruebas JVM y 15 Android.
 Este cambio de formulario si requiere instalar el APK actualizado.
+
+## Zoom de camara (T013, 2026-11-03)
+
+- Agregado gesto de dos dedos para acercar/alejar con CameraX, limitado a su rango
+	minZoomRatio/maxZoomRatio. Un toque simple sigue enfocando; terminar un gesto
+	de zoom no activa enfoque ni clic. Sin botones, permisos ni dependencias nuevos.
+- Sin cambios a captura, OCR, linterna, revision, confirmacion, ingreso manual o API.
+- Pruebas nuevas enfocadas: 2/2 correctas en CarWash_API_35 (Android 15/API 35),
+	con eventos multitactiles Android; acercar, alejar y enfocar despues del zoom.
+- Gate ejecutado: `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug
+	:app:lintDebug :app:connectedDebugAndroidTest
+	'-Pandroid.testInstrumentationRunnerArguments.class=com.carwash.mobile.PlateCaptureTest'
+	--console=plain`: BUILD SUCCESSFUL. 77 JVM y 9 instrumentadas de captura
+	correctas; 0 fallos/omitidas en esa clase. Lint: 0 errores, 6 advertencias.
+- APK Debug actualizado: app/build/outputs/apk/debug/app-debug.apk. No requiere
+	actualizar API. Zoom fisico, rango efectivo y calidad a distancia pendientes
+	de verificar en el telefono; no se declara esa prueba como ejecutada.

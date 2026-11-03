@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `specs/006-reporte-ventas/spec.md`.
 
-**Status**: Implementacion y gates T001-T056 completados en aislamiento; evidencia en quickstart. Sin despliegue ni auditoria global.
+**Status**: Implementacion y gates T001-T060 completados en aislamiento, incluida revision de sesion general de 9 horas y combos; evidencia en quickstart. Sin despliegue ni auditoria global.
 
 ## Summary
 
@@ -41,7 +41,7 @@ un acceso alterno anonimo a los mismos cobros.
 
 **Scale/Scope**: Un reporte, cuatro filtros opcionales, totales del conjunto completo y detalle paginado sin limite arbitrario de fechas.
 
-**Authentication gate**: Resuelto con autorizacion explicita del usuario. Token opaco de 32 bytes aleatorios, hash en memoria de API, token solo en memoria de clientes y perfil vigente comprobado en cada lectura. Expiracion por inactividad de 30 minutos y absoluta de 8 horas; logout confirmado y reinicio API invalidan sesiones.
+**Authentication gate**: Resuelto con autorizacion explicita del usuario. Token opaco de 32 bytes aleatorios, hash en memoria de API, token solo en memoria de clientes y perfil vigente comprobado en cada lectura. Una sesion general por login, con cierre absoluto a las 9 horas, sin vencimiento por inactividad ni renovacion por uso. No hay login exclusivo de Ventas ni cierre simultaneo de otros usuarios; logout confirmado y reinicio API invalidan sesiones. Tras muerte del proceso se requiere login general.
 
 ## Constitution Check
 
