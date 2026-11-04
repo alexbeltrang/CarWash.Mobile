@@ -425,23 +425,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\hbeltran\\.nuget\\packages\\": {},
+    "C:\\Users\\alexb\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\WorkGitHub\\CarWash.Mobile\\installer\\seeder\\CarWashSeeder.csproj",
+      "projectUniqueName": "C:\\Work\\CarWash.Mobile\\installer\\seeder\\CarWashSeeder.csproj",
       "projectName": "CarWashSeeder",
-      "projectPath": "D:\\WorkGitHub\\CarWash.Mobile\\installer\\seeder\\CarWashSeeder.csproj",
-      "packagesPath": "C:\\Users\\hbeltran\\.nuget\\packages\\",
-      "outputPath": "D:\\WorkGitHub\\CarWash.Mobile\\installer\\seeder\\obj\\",
+      "projectPath": "C:\\Work\\CarWash.Mobile\\installer\\seeder\\CarWashSeeder.csproj",
+      "packagesPath": "C:\\Users\\alexb\\.nuget\\packages\\",
+      "outputPath": "C:\\Work\\CarWash.Mobile\\installer\\seeder\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\hbeltran\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\alexb\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -450,7 +450,6 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -495,27 +494,11 @@
         "warn": true,
         "downloadDependencies": [
           {
-            "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[9.0.22, 9.0.22]"
-          },
-          {
             "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
             "version": "[9.0.22, 9.0.22]"
           },
           {
-            "name": "Microsoft.NETCore.App.Host.win-x64",
-            "version": "[9.0.22, 9.0.22]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Ref",
-            "version": "[9.0.22, 9.0.22]"
-          },
-          {
             "name": "Microsoft.NETCore.App.Runtime.win-x64",
-            "version": "[9.0.22, 9.0.22]"
-          },
-          {
-            "name": "Microsoft.WindowsDesktop.App.Ref",
             "version": "[9.0.22, 9.0.22]"
           },
           {
