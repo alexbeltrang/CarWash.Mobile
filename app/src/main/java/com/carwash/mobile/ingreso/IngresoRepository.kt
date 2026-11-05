@@ -67,6 +67,12 @@ interface CarWashApi {
 
     @POST("api/Turnos/{idTurno}/notificacion-email/reintentar")
     suspend fun retryEmail(@Path("idTurno") idTurno: Int): Response<EmailNotificationResult>
+
+    @POST("api/Turnos/{idTurno}/notificacion-whatsapp")
+    suspend fun notifyWhatsApp(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
+
+    @POST("api/Turnos/{idTurno}/notificacion-whatsapp/reintentar")
+    suspend fun retryWhatsApp(@Path("idTurno") idTurno: Int): Response<WhatsAppNotificationResult>
 }
 
 interface IngresoRepository {
@@ -78,6 +84,8 @@ interface IngresoRepository {
     }
     suspend fun notifyEmail(idTurno: Int): EmailNotificationResult? = null
     suspend fun retryEmail(idTurno: Int): EmailNotificationResult? = null
+    suspend fun notifyWhatsApp(idTurno: Int): WhatsAppNotificationResult? = null
+    suspend fun retryWhatsApp(idTurno: Int): WhatsAppNotificationResult? = null
 }
 
 class CashClosedException : IOException()
@@ -121,6 +129,12 @@ class ApiIngresoRepository(
 
     override suspend fun notifyEmail(idTurno: Int): EmailNotificationResult? =
         api.notifyEmail(idTurno).optional()
+
+    override suspend fun notifyWhatsApp(idTurno: Int): WhatsAppNotificationResult? =
+        api.notifyWhatsApp(idTurno).optional()
+
+    override suspend fun retryWhatsApp(idTurno: Int): WhatsAppNotificationResult? =
+        api.retryWhatsApp(idTurno).optional()
 
     override suspend fun register(form: IngresoForm, beforeWrite: (String) -> Unit): SavedTurn {
         require(form.errors().isEmpty())

@@ -1,5 +1,25 @@
 # Modelo de datos: confirmación por correo
 
+## WhatsApp adicional (2026-11-05)
+
+Reutilizar WhatsAppNotifications existente, sin tabla ni migracion nueva. Indice
+unico por IdTurno; MessageIdExterno impide segundo envio tras aceptacion. Intentos
+se incrementa atomicamente al reclamar envio, hasta MaxAttempts. No guardar token
+ni cuerpos completos. Estado NOT_CONFIGURED es una respuesta sin fila nueva.
+
+Transiciones: PENDING -> SENDING -> ACCEPTED -> DELIVERED; SENDING -> RETRYING
+para rechazo transitorio o FAILED para rechazo definitivo/limite. Reintento manual
+seguro: RETRYING/FAILED -> SENDING si no hay MessageIdExterno ni limite agotado.
+Timeout, cancelacion o respuesta ambigua -> UNKNOWN; no se reenvia automaticamente
+ni se ofrece reintento sin conciliar. SENDING que sobreviva a un reinicio tambien
+requiere conciliacion: no se presume fallo para reenviar. Datos no utilizables ->
+NOT_APPLICABLE. Entrega solo se confirma con webhook firmado y message_id conocido.
+
+Android mantiene whatsAppTurnId/Status/CanRetry/Sending separados del correo y
+descarta respuestas de otra identidad de repositorio o turno. Ocultar estado no
+cancela un envio aceptado; reintentar nunca registra otro turno. No persistir esos
+datos en preferencias ni introducir una restriccion de celular para guardar ingreso.
+
 ## NotificaciónEmail
 
 Una notificación pertenece a un único `Turno` confirmado y se crea de forma

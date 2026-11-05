@@ -28,6 +28,7 @@ import com.carwash.mobile.ingreso.VehicleInfo
 import com.carwash.mobile.ingreso.VehicleService
 import com.carwash.mobile.ingreso.VehicleType
 import com.carwash.mobile.ingreso.EmailNotificationResult
+import com.carwash.mobile.ingreso.WhatsAppNotificationResult
 import com.carwash.mobile.ui.theme.CarWashTheme
 import org.junit.Assert.*
 import org.junit.Before
@@ -197,6 +198,34 @@ class MainActivityTest {
         composeRule.onNodeWithTag("plate").performScrollTo().assertIsDisplayed()
     }
 
+    @Test
+    fun whatsappNotConfiguredDoesNotHideSuccessfulRegistration() {
+        fillForm()
+        composeRule.onNodeWithTag("save").performClick()
+        composeRule.onNodeWithText("WhatsApp no está configurado en el servidor.")
+            .performScrollTo().assertIsDisplayed()
+        composeRule.runOnIdle {
+            assertEquals(1, repository.writes)
+            assertEquals(IngresoForm(), model.state.form)
+            assertEquals(com.carwash.mobile.ingreso.NoticeKind.SAVED, model.state.notice?.kind)
+        }
+        composeRule.onNodeWithContentDescription("Reintentar WhatsApp").assertDoesNotExist()
+    }
+
+    @Test
+    fun whatsappRetryOnlyRetriesMessageAndDoesNotClaimDelivery() {
+        repository.whatsAppResult = WhatsAppNotificationResult(1, "RETRYING", "RETRY_MANUAL")
+        fillForm()
+        composeRule.onNodeWithTag("save").performClick()
+        composeRule.onNodeWithContentDescription("Reintentar WhatsApp").performScrollTo().performClick()
+        composeRule.onNodeWithText("Mensaje aceptado por WhatsApp.").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Mensaje entregado.").assertDoesNotExist()
+        composeRule.runOnIdle {
+            assertEquals(1, repository.writes)
+            assertEquals(1, repository.whatsAppRetries)
+        }
+    }
+
     private fun selectAutomobile() {
         composeRule.onNodeWithTag("vehicleType").performScrollTo().performClick()
         composeRule.onAllNodesWithText("Automóviles").onLast().performClick()
@@ -225,6 +254,15 @@ class MainActivityTest {
         var closed = false
         var notificationStatus = "NOT_APPLICABLE"
         var lastForm: IngresoForm? = null
+        var whatsAppResult = WhatsAppNotificationResult(1, "NOT_CONFIGURED")
+        var whatsAppRetries = 0
+
+        override suspend fun notifyWhatsApp(idTurno: Int) = whatsAppResult
+
+        override suspend fun retryWhatsApp(idTurno: Int): WhatsAppNotificationResult {
+            whatsAppRetries++
+            return WhatsAppNotificationResult(idTurno, "ACCEPTED")
+        }
 
         override suspend fun load() = Catalog(
             listOf(VehicleType(3, "Automóviles"), VehicleType(1, "Moto")),

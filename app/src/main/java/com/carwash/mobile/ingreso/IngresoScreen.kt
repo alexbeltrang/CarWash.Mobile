@@ -187,6 +187,10 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
                     onRetry = model::retryEmail,
                 )
             }
+            state.whatsAppStatus?.let { status ->
+                WhatsAppStatus(status, state.whatsAppCanRetry, state.whatsAppSending,
+                    model::retryWhatsApp, model::clearWhatsAppStatus)
+            }
             SectionTitle(R.string.vehicle_section)
             FilledTonalButton(
                 onClick = { keyboard?.hide(); showCapture = true },
@@ -429,6 +433,29 @@ private fun EmailStatus(status: String, canRetry: Boolean, onRetry: () -> Unit) 
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun WhatsAppStatus(status: String, canRetry: Boolean, sending: Boolean, onRetry: () -> Unit, onDismiss: () -> Unit) {
+    val label = when (status) {
+        "NOT_CONFIGURED" -> R.string.whatsapp_not_configured
+        "NOT_APPLICABLE" -> R.string.whatsapp_not_applicable
+        "PENDING", "SENDING" -> R.string.whatsapp_pending
+        "RETRYING" -> R.string.whatsapp_retrying
+        "ACCEPTED" -> R.string.whatsapp_accepted
+        "DELIVERED" -> R.string.whatsapp_delivered
+        "FAILED" -> R.string.whatsapp_failed
+        "UNAVAILABLE" -> R.string.whatsapp_unavailable
+        else -> R.string.whatsapp_unknown
+    }
+    Row(Modifier.fillMaxWidth().testTag("whatsAppStatus"), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.whatsapp_status_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
+        }
+        if (canRetry) ToolButton(Icons.Default.Refresh, R.string.whatsapp_retry, !sending, onRetry)
+        ToolButton(Icons.Default.Close, R.string.whatsapp_dismiss, true, onDismiss)
     }
 }
 

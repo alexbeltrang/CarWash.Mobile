@@ -79,6 +79,11 @@ data class EmailNotificationResult(
     val estado: String,
     val accion: String,
 )
+data class WhatsAppNotificationResult(
+    val idTurno: Int,
+    val estado: String,
+    val accion: String = "NONE",
+)
 data class TurnServiceRequest(val idServicios: Int, val idTurno: Int, val isDeleted: Boolean = false)
 
 data class TurnRequest(

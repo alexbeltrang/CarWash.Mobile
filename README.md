@@ -53,6 +53,17 @@ Las sugerencias no validan un formato legal ni garantizan exactitud; no se
 sustituyen O/0 ni I/1. Es necesaria la revision humana antes de continuar.
 La captura esta deshabilitada durante guardado o revision de un envio incierto.
 
+## WhatsApp adicional al correo
+
+Tras confirmar turno y servicios, Android solicita correo y WhatsApp por separado,
+sin esperar mensajeria para confirmar el ingreso. Un fallo no revierte ni duplica
+el registro. El estado WhatsApp distingue aceptacion de entrega y solo permite
+reintentar cuando la API lo autoriza; no reenvia resultados inciertos.
+
+Meta permanece deshabilitado hasta configurar numero, token y plantilla aprobada
+en el servidor. No guardar secretos en el APK. Alta, plantilla y webhook:
+[guia de configuracion](specs/004-confirmacion-whatsapp/quickstart.md).
+
 ## Ventas y sesion temporal
 
 Tras ingresar, Administrador dispone de Ingreso, Vehiculos y Ventas; los demas

@@ -290,6 +290,92 @@ class IngresoViewModelTest {
         assertEquals(ProbeResult.TIMEOUT, model.state.probeResults["http://192.168.1.20:5197/"])
     }
 
+    @Test
+    fun whatsappAndEmailAreIndependentAndDoNotDelaySavedState() = runTest(dispatcher) {
+        val source = FakeRepository().apply { whatsAppGate = CompletableDeferred() }
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertFalse(model.state.saving)
+        assertEquals(IngresoForm(), model.state.form)
+        assertEquals(1, source.emailCalls)
+        assertEquals(1, source.whatsAppCalls)
+        assertEquals("PENDING", model.state.whatsAppStatus)
+
+        source.whatsAppGate!!.complete(WhatsAppNotificationResult(1, "ACCEPTED"))
+        runCurrent()
+        assertEquals("ACCEPTED", model.state.whatsAppStatus)
+        assertEquals("ACCEPTED", model.state.notificationStatus)
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun partialSaveNeverNotifiesEitherChannel() = runTest(dispatcher) {
+        val source = FakeRepository().apply { failAfterWrite = true }
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        assertTrue(model.state.reviewRequired)
+        assertEquals(0, source.emailCalls)
+        assertEquals(0, source.whatsAppCalls)
+    }
+
+    @Test
+    fun whatsappFailureKeepsEmailAndDoesNotAllowUnsafeRetry() = runTest(dispatcher) {
+        val source = FakeRepository().apply { failWhatsApp = true }
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        assertEquals("UNKNOWN", model.state.whatsAppStatus)
+        assertEquals("ACCEPTED", model.state.notificationStatus)
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        model.retryWhatsApp()
+        runCurrent()
+        assertEquals(0, source.whatsAppRetries)
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun retryWhatsAppUsesOnlyNotificationEndpoint() = runTest(dispatcher) {
+        val source = FakeRepository().apply {
+            whatsAppResult = WhatsAppNotificationResult(1, "RETRYING", "RETRY_MANUAL")
+        }
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        assertTrue(model.state.whatsAppCanRetry)
+        model.retryWhatsApp()
+        model.retryWhatsApp()
+        runCurrent()
+        assertEquals("ACCEPTED", model.state.whatsAppStatus)
+        assertEquals(1, source.whatsAppRetries)
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun dismissingNotificationIgnoresLateWhatsAppResponse() = runTest(dispatcher) {
+        val source = FakeRepository().apply { whatsAppGate = CompletableDeferred() }
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        model.clearWhatsAppStatus()
+        source.whatsAppGate!!.complete(WhatsAppNotificationResult(1, "ACCEPTED"))
+        runCurrent()
+        assertNull(model.state.whatsAppStatus)
+        assertNull(model.state.whatsAppTurnId)
+    }
+
     private fun model(source: FakeRepository) = IngresoViewModel(MemorySettings()) { source }
 
     private fun fill(model: IngresoViewModel) {
@@ -314,6 +400,28 @@ class IngresoViewModelTest {
         var lookupResult = PlateLookup(null, emptyList())
         var updatedId: Int? = null
         var updatedForm: IngresoForm? = null
+        var emailCalls = 0
+        var whatsAppCalls = 0
+        var whatsAppRetries = 0
+        var failWhatsApp = false
+        var whatsAppGate: CompletableDeferred<WhatsAppNotificationResult>? = null
+        var whatsAppResult = WhatsAppNotificationResult(1, "ACCEPTED")
+
+        override suspend fun notifyEmail(idTurno: Int): EmailNotificationResult {
+            emailCalls++
+            return EmailNotificationResult(idTurno, "ACCEPTED", "NONE")
+        }
+
+        override suspend fun notifyWhatsApp(idTurno: Int): WhatsAppNotificationResult {
+            whatsAppCalls++
+            if (failWhatsApp) throw IOException()
+            return whatsAppGate?.await() ?: whatsAppResult
+        }
+
+        override suspend fun retryWhatsApp(idTurno: Int): WhatsAppNotificationResult {
+            whatsAppRetries++
+            return WhatsAppNotificationResult(idTurno, "ACCEPTED")
+        }
 
         override suspend fun updateInProcess(idTurno: Int, form: IngresoForm) {
             updatedId = idTurno

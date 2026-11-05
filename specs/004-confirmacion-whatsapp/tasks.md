@@ -149,3 +149,15 @@ archivo explícita.
 - [X] T043 Modernizar el formulario WinForms, ocultar Orden y ubicar CorreoElectronico en su espacio sin cambiar operaciones
 - [X] T044 Desacoplar el envío móvil del correo para no bloquear la confirmación del ingreso
 - [X] T045 Cargar y editar desde Android el turno en proceso de una placa (API `GET Turnos/EnProcesoPorPlaca`, `PUT Turnos/{id}/EnProceso`) con pruebas unitarias
+
+## WhatsApp adicional aprobado 2026-11-05
+
+- [X] T046 Corregir plantilla y configurar Meta opcional sin secretos, sin exigir color inexistente; probar construccion y configuracion ausente en API.
+- [X] T047 Proteger idempotencia, intentos y resultados inciertos del envio WhatsApp con pruebas aisladas; conservar correo e ingreso confirmado.
+- [X] T048 Solicitar WhatsApp y correo independientemente tras guardado completo en Android; mostrar estados separados y reintento seguro, con pruebas JVM/UI.
+- [X] T049 Documentar alta de Meta, plantilla, consentimiento y secretos del servidor; compilar/lint, ejecutar regresion y generar APK sin enviar mensajes reales ni desplegar API.
+
+Evidencia T046-T049: ver quickstart, revision 2026-11-05. 79 pruebas API,
+84 JVM y 45 instrumentadas correctas, 0 fallos; una integracion opcional del
+reporte omitida sin URL de fixture. Compilacion/lint correctos (0 errores,
+6 advertencias). Meta aun no configurado; no se enviaron mensajes reales.

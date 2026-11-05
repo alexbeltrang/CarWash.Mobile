@@ -58,6 +58,10 @@ data class IngresoState(
     val notice: Notice? = null,
     val notificationTurnId: Int? = null,
     val notificationStatus: String? = null,
+    val whatsAppTurnId: Int? = null,
+    val whatsAppStatus: String? = null,
+    val whatsAppCanRetry: Boolean = false,
+    val whatsAppSending: Boolean = false,
     val editingTurnId: Int? = null,
 )
 
@@ -284,6 +288,8 @@ class IngresoViewModel(
             notice = null,
             notificationTurnId = null,
             notificationStatus = null,
+            whatsAppTurnId = null, whatsAppStatus = null,
+            whatsAppCanRetry = false, whatsAppSending = false,
         )
         viewModelScope.launch {
             try {
@@ -297,6 +303,8 @@ class IngresoViewModel(
                     saving = false, reviewRequired = false, pendingNumber = "",
                     notificationTurnId = saved.idTurno,
                     notificationStatus = saved.notificationStatus,
+                    whatsAppTurnId = saved.idTurno,
+                    whatsAppStatus = "PENDING",
                     notice = Notice(
                         NoticeKind.SAVED,
                         listOf(saved.numeroTurno.orEmpty(), saved.notificationStatus?.let { "Correo: $it" })
@@ -304,6 +312,7 @@ class IngresoViewModel(
                             .joinToString(" - "),
                     ),
                 )
+                sendWhatsApp(source, saved.idTurno)
                 viewModelScope.launch {
                     runCatching { source.notifyEmail(saved.idTurno) }
                             .getOrNull()
@@ -330,6 +339,43 @@ class IngresoViewModel(
                 )
             }
         }
+    }
+
+    private fun sendWhatsApp(source: IngresoRepository, idTurno: Int, retry: Boolean = false) {
+        state = state.copy(whatsAppSending = true, whatsAppCanRetry = false)
+        viewModelScope.launch {
+            try {
+                val result = if (retry) source.retryWhatsApp(idTurno) else source.notifyWhatsApp(idTurno)
+                if (state.whatsAppTurnId == idTurno && repository === source) {
+                    val matching = result?.takeIf { it.idTurno == idTurno }
+                    state = state.copy(
+                        whatsAppStatus = matching?.estado ?: if (result == null) "UNAVAILABLE" else "UNKNOWN",
+                        whatsAppCanRetry = matching?.accion == "RETRY_MANUAL",
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (state.whatsAppTurnId == idTurno && repository === source) {
+                    state = state.copy(whatsAppStatus = "UNKNOWN", whatsAppCanRetry = false)
+                }
+            } finally {
+                if (state.whatsAppTurnId == idTurno && repository === source) {
+                    state = state.copy(whatsAppSending = false)
+                }
+            }
+        }
+    }
+
+    fun retryWhatsApp() {
+        val idTurno = state.whatsAppTurnId ?: return
+        val source = repository ?: return
+        if (!state.whatsAppCanRetry || state.whatsAppSending) return
+        sendWhatsApp(source, idTurno, retry = true)
+    }
+
+    fun clearWhatsAppStatus() {
+        state = state.copy(whatsAppTurnId = null, whatsAppStatus = null, whatsAppCanRetry = false, whatsAppSending = false)
     }
 
     fun retryEmail() {
@@ -366,6 +412,7 @@ class IngresoViewModel(
             form = IngresoForm(), history = emptyList(), searched = false, searching = false,
             errors = emptySet(), notice = null, reviewRequired = false, pendingNumber = "",
             notificationTurnId = null, notificationStatus = null, editingTurnId = null,
+            whatsAppTurnId = null, whatsAppStatus = null, whatsAppCanRetry = false, whatsAppSending = false,
         )
     }
 }

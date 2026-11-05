@@ -232,6 +232,29 @@ class IngresoRepositoryTest {
         }
     }
 
+    @Test
+    fun whatsappNotificationAndRetryUseOnlyTheirOwnEndpoints() = runTest {
+        respond(200, """{"idTurno":123,"estado":"NOT_CONFIGURED","accion":"NONE"}""")
+        assertEquals("NOT_CONFIGURED", repository.notifyWhatsApp(123)?.estado)
+        val notify = server.takeRequest()
+        assertEquals("POST", notify.method)
+        assertEquals("/api/Turnos/123/notificacion-whatsapp", notify.path)
+
+        respond(200, """{"idTurno":123,"estado":"ACCEPTED","accion":"NONE"}""")
+        assertEquals("ACCEPTED", repository.retryWhatsApp(123)?.estado)
+        val retry = server.takeRequest()
+        assertEquals("POST", retry.method)
+        assertEquals("/api/Turnos/123/notificacion-whatsapp/reintentar", retry.path)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun olderApiWithoutWhatsAppDoesNotChangeRegistrationContract() = runTest {
+        respond(404, "")
+        assertNull(repository.notifyWhatsApp(123))
+        assertEquals(1, server.requestCount)
+    }
+
     private fun respond(code: Int, body: String) {
         server.enqueue(MockResponse().setResponseCode(code).setHeader("Content-Type", "application/json").setBody(body))
     }

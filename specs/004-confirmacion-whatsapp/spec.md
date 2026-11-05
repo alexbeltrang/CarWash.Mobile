@@ -1,10 +1,26 @@
-# Feature Specification: Confirmación de ingreso por correo electrónico
+# Feature Specification: Confirmación de ingreso por correo electrónico y WhatsApp
 
 **Feature Branch**: `004-confirmacion-whatsapp`
 
 **Created**: 2026-10-28
 
-**Status**: Draft
+**Status**: Correo conservado y WhatsApp adicional implementado/verificado con dobles el 2026-11-05. Alta Meta, actualizacion de API instalada y prueba real autorizada pendientes. Sin envios reales ni despliegue.
+
+## Revision aprobada 2026-11-05: agregar WhatsApp
+
+- Envio automatico mediante WhatsApp Business Platform de Meta al confirmar turno
+	y todos sus servicios; conservar el correo existente como canal independiente.
+- Mensaje con placa, servicios autorizados y total confirmado. Reutilizar saludo,
+	marca y nombre comercial disponibles; no exigir un color inexistente en el modelo.
+- Guardar/confirmar el ingreso no espera mensajeria ni se revierte si un canal falla.
+- Configuracion incompleta se informa como NOT_CONFIGURED, sin llamar a Meta ni
+	crear un envio irrecuperable; credenciales solo en servidor, nunca APK o Git.
+- Identidad de notificacion por turno; repetir solicitud o recibir una aceptacion
+	no debe reenviar. Un resultado incierto no se reintenta automaticamente.
+- Mostrar estados separados por canal y permitir reintentar fallos seguros sin
+	registrar nuevamente el ingreso. No enviar en guardados parciales/inciertos.
+- El usuario aun no tiene numero habilitado ni plantilla aprobada en Meta:
+	documentar el alta y validar con dobles, sin mensajes reales ni activar produccion.
 
 **Input**: User description: "Cuando se haga el ingreso del vehículo, enviar por correo electrónico la recepción del vehículo, los servicios autorizados y el valor a pagar."
 

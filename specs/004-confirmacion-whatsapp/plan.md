@@ -1,8 +1,21 @@
-# Implementation Plan: Confirmación de ingreso por correo electrónico
+# Implementation Plan: Confirmación por correo y WhatsApp adicional
 
 **Branch**: `004-confirmacion-whatsapp` | **Date**: 2026-10-28 | **Spec**: [spec.md](./spec.md)
 
 ## Summary
+
+Revision 2026-11-05: conservar SMTP y agregar Meta Cloud API reutilizando los
+servicios y endpoints WhatsApp existentes. El movil dispara cada canal en una
+coroutine independiente despues de register completo; los fallos de mensajeria
+no entran en la ruta de error de registro. Estado WhatsApp separado y en memoria,
+con guardia de turno/origen frente a respuestas tardias. La API usa indice unico
+por turno y claim atomico PENDING/RETRYING/FAILED -> SENDING; no repite aceptados,
+envios en curso ni resultados UNKNOWN. MaxAttempts limita reintentos manuales.
+Sin Meta configurado no persiste un fallo terminal ni consume intentos. Webhook
+validado con HMAC-SHA256 del cuerpo original y AppSecret antes de actualizar entrega.
+No se agrega worker ni se prometen reintentos automaticos o una entrega tras cerrar
+la app antes de que esta solicite notificacion. El alta Meta requiere intervencion
+del propietario; no hay credenciales ni mensajes reales en la validacion.
 
 Después de confirmar un ingreso y sus servicios, `CarWashApi` preparará y enviará
 un correo mediante SMTP. La app móvil solo consumirá el resultado de la API.
