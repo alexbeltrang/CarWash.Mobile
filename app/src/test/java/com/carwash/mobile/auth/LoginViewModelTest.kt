@@ -20,11 +20,11 @@ class LoginViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val credential = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     private fun modelWithClock(repository: AuthRepository, store: SessionStore) =
-        LoginViewModel(repository, store, elapsedRealtime = { dispatcher.scheduler.currentTime })
+        LoginViewModel(repository, store, elapsedRealtime = { dispatcher.scheduler.currentTime }, nowMillis = { dispatcher.scheduler.currentTime })
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
 
-    @Test fun successfulLoginKeepsLiveCredentialOnlyInMemory() = runTest(dispatcher) {
+    @Test fun successfulLoginPersistsSessionWithoutPassword() = runTest(dispatcher) {
         val session = credentialSession()
         val store = MemoryStore()
         val model = modelWithClock(object : AuthRepository {
@@ -32,17 +32,19 @@ class LoginViewModelTest {
         }, store)
         model.updateUser("admin"); model.updatePassword("fixture"); model.submit(); runCurrent()
         assertEquals(credential, Gson().toJsonTree(model.state.session).asJsonObject.get("accessToken")?.asString)
-        assertFalse(Gson().toJson(store.saved).contains(credential))
+        assertEquals(credential, store.saved?.accessToken)
+        assertEquals(9 * 60 * 60 * 1000L, store.saved?.localExpiresAtMillis)
+        assertFalse(Gson().toJsonTree(store.saved).asJsonObject.has("password"))
         assertEquals("", model.state.password)
     }
 
-    @Test fun restoredMetadataNeverRestoresCredential() = runTest(dispatcher) {
+    @Test fun savedSessionRestoresWithoutAnotherLoginAndLogoutClearsIt() = runTest(dispatcher) {
         val store = MemoryStore(credentialSession())
         val model = modelWithClock(object : AuthRepository {
             override suspend fun login(userName: String, password: String) = LoginOutcome.Unreachable
         }, store)
-        assertNull(model.state.session)
-        assertFalse(Gson().toJson(model.state.session).contains(credential))
+        assertEquals(credential, model.state.session?.accessToken)
+        assertFalse(model.state.requiresReentry)
         model.logout()
         assertNull(model.state.session)
         assertNull(store.saved)
@@ -62,7 +64,31 @@ class LoginViewModelTest {
         assertNull(store.saved)
     }
 
-    private fun credentialSession() = Gson().fromJson("""{"userId":1,"displayName":"Admin","isAdmin":true,"baseUrl":"http://fixture/","accessToken":"$credential","expiresAt":"2026-11-03T20:00:00Z","serverDate":"2026-11-03"}""", Session::class.java)
+    private fun credentialSession() = Gson().fromJson("""{"userId":1,"displayName":"Admin","isAdmin":true,"baseUrl":"http://fixture/","accessToken":"$credential","expiresAt":"2026-11-03T20:00:00Z","serverDate":"2026-11-03","localExpiresAtMillis":32400000}""", Session::class.java)
+
+    @Test fun restoringDoesNotRestartTheNineHourDeadline() = runTest(dispatcher) {
+        val repository = object : AuthRepository {
+            override suspend fun login(userName: String, password: String) = LoginOutcome.Unreachable
+        }
+        advanceTimeBy(8 * 60 * 60 * 1000L)
+        val store = MemoryStore(credentialSession())
+        val restored = modelWithClock(repository, store)
+        assertNotNull(restored.state.session)
+        advanceTimeBy(60 * 60 * 1000L); runCurrent()
+        assertNull(restored.state.session); assertNull(store.saved)
+    }
+
+    @Test fun expiredSessionAndLegacyMetadataRequireLogin() = runTest(dispatcher) {
+        val repository = object : AuthRepository {
+            override suspend fun login(userName: String, password: String) = LoginOutcome.Unreachable
+        }
+        for (saved in listOf(credentialSession().copy(localExpiresAtMillis = 0), credentialSession().metadata(),
+            credentialSession().copy(expiresAt = "1970-01-01T00:00:00Z"))) {
+            val store = MemoryStore(saved)
+            assertNull(modelWithClock(repository, store).state.session)
+            assertNull(store.saved)
+        }
+    }
 
     @Test fun reentryWithoutServerCredentialStaysBlockedAndCanReturnToIngreso() = runTest(dispatcher) {
         val metadata = Session(1, "Admin", true, "http://fixture/")
@@ -111,7 +137,7 @@ class LoginViewModelTest {
         assertEquals(credential, model.state.session!!.accessToken)
         assertFalse(model.state.requiresReentry)
         assertFalse(store.saved!!.isAdmin)
-        assertFalse(Gson().toJson(store.saved).contains(credential))
+        assertEquals(credential, store.saved!!.accessToken)
         assertEquals("", model.state.password)
         advanceTimeBy(9 * 60 * 60 * 1000L); runCurrent()
         assertNull(model.state.session)

@@ -56,7 +56,7 @@ fun ReporteVentasScreen(
     }
     Scaffold(topBar = {
         TopAppBar(expandedHeight = maxOf(64.dp, (64 * LocalDensity.current.fontScale).dp),
-            title = { Text(stringResource(R.string.report_title)) }, navigationIcon = {
+            title = { com.carwash.mobile.empresa.EmpresaHeader(stringResource(R.string.report_title)) }, navigationIcon = {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.report_back)) }
         }, actions = {
             IconButton(onClick = { model.clear(); onLogout() }) {

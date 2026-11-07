@@ -207,18 +207,102 @@ class IngresoRepositoryTest {
         respond(204, "")
         respond(201, """{"idTurno":124,"numeroTurno":"T-20261028-008"}""")
         respond(500, "Error")
+        respond(404, "")
         try {
             repository.register(valid) { }
             fail("Expected partial registration")
         } catch (failure: RegistrationException) {
             assertTrue(failure.uncertain)
             assertEquals("T-20261028-008", failure.turnNumber)
-            assertEquals(5, server.requestCount)
-            val requests = List(5) { server.takeRequest() }
+            assertEquals(6, server.requestCount)
+            val requests = List(6) { server.takeRequest() }
             assertEquals("PUT", requests[2].method)
             assertEquals("/api/TurnosDiarios/ActualizarTurnoDiario/9", requests[2].path)
+            assertEquals("GET", requests.last().method)
+            assertEquals("/api/Turnos/EnProcesoPorPlaca?placa=ABC123", requests.last().path)
         }
     }
+
+    @Test
+    fun confirmsCompleteRegistrationAfterFailedWriteResponseWithoutRepeatingWrites() = runTest {
+        enqueueUncertainRegistration()
+        respond(200, confirmedTurn().toString())
+        assertEquals(SavedTurn(124, "T-20261028-001"), repository.register(valid) { })
+        assertEquals(7, server.requestCount)
+        val requests = List(7) { server.takeRequest() }
+        assertEquals("GET", requests.last().method)
+        assertEquals("/api/Turnos/EnProcesoPorPlaca?placa=ABC123", requests.last().path)
+        assertEquals(1, requests.count { it.path == "/api/Turnos/RegistrarTurno" })
+        assertEquals(2, requests.count { it.path == "/api/TurnoServicios/RegistrarTurnoServicio" })
+        assertFalse(requests.any { it.path.orEmpty().contains("notificacion") })
+    }
+
+    @Test
+    fun reportsFailedWriteStageWithoutExposingResponseBody() = runTest {
+        for (stage in RegistrationStage.entries) {
+            respond(200, """{"idCaja":30,"estado":true}""")
+            respond(200, "[]")
+            if (stage != RegistrationStage.DAILY) {
+                respond(201, """{"id":5,"fecha":"2026-10-28T00:00:00","consecutivo":1}""")
+            }
+            if (stage == RegistrationStage.SERVICES) {
+                respond(201, """{"idTurno":124,"numeroTurno":"T-20261028-001"}""")
+            }
+            respond(500, "PRIVATE_RESPONSE_BODY")
+            respond(404, "")
+            try {
+                repository.register(valid) { }
+                fail("Expected uncertain registration")
+            } catch (failure: RegistrationException) {
+                assertTrue(failure.uncertain)
+                assertEquals(stage, failure.stage)
+                assertEquals(500, (failure.cause as retrofit2.HttpException).code())
+                assertFalse(failure.message.orEmpty().contains("PRIVATE_RESPONSE_BODY"))
+            }
+            repeat(stage.ordinal + 4) { server.takeRequest() }
+        }
+    }
+
+    @Test
+    fun doesNotConfirmPartialDifferentOrUnreadableRegistration() = runTest {
+        val confirmations = listOf(
+            confirmedTurn().apply { add("idServicios", com.google.gson.JsonParser.parseString("[1]")) }.toString(),
+            confirmedTurn().apply { addProperty("numeroTurno", "T-OTHER") }.toString(),
+            confirmedTurn().apply { addProperty("valor", 1) }.toString(),
+            confirmedTurn().apply { addProperty("numeroCelular", "+573111111111") }.toString(),
+            "invalid json",
+        )
+        for (confirmation in confirmations) {
+            enqueueUncertainRegistration()
+            respond(200, confirmation)
+            try {
+                repository.register(valid) { }
+                fail("Unconfirmed registration must remain uncertain")
+            } catch (failure: RegistrationException) {
+                assertTrue(failure.uncertain)
+                assertEquals("T-20261028-001", failure.turnNumber)
+                assertTrue(failure.cause is retrofit2.HttpException)
+            }
+            val requests = List(7) { server.takeRequest() }
+            assertEquals("GET", requests.last().method)
+            assertEquals(1, requests.count { it.path == "/api/Turnos/RegistrarTurno" })
+        }
+    }
+
+    private fun enqueueUncertainRegistration() {
+        respond(200, """{"idCaja":30,"estado":true}""")
+        respond(200, "[]")
+        respond(201, """{"id":5,"fecha":"2026-10-28T00:00:00","consecutivo":1}""")
+        respond(201, """{"idTurno":124,"numeroTurno":"T-20261028-001"}""")
+        respond(201, "{}")
+        respond(500, "Error after write")
+    }
+
+    private fun confirmedTurn() = com.google.gson.JsonParser.parseString(
+        """{"idTurno":124,"numeroTurno":"T-20261028-001","nombreCliente":"","numeroCelular":"",
+        "correoElectronico":"cliente@example.com","marca":"","observaciones":"","idTipoVehiculo":3,
+        "valor":30000.50,"valorBaseComision":0,"idServicios":[1,2]}""",
+    ).asJsonObject
 
     @Test
     fun configuredClientDoesNotFollowRedirects() = runTest {

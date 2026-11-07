@@ -1,9 +1,9 @@
 <!--
 Sync Impact Report
-Version: 1.1.0 -> 1.2.0 (permite inicio de sesion contra la API existente, sin persistir credenciales; la sesion se recuerda hasta cerrar sesion).
+Version: 1.2.0 -> 1.3.0 (permite persistir el prefijo de pais WhatsApp configurable solicitado por el usuario, sin datos de clientes).
 Principio modificado: IV. Privacidad y seguridad (mismo titulo).
 Secciones agregadas/eliminadas: ninguna.
-Impacto: specs/002-ingreso-vehiculo autoriza API existente y permiso INTERNET.
+Impacto: specs/004-confirmacion-whatsapp, contrato y tareas actualizados; plantillas y comandos leen la constitucion al ejecutarse y no se modifican.
 Pendientes de plantilla: ninguno.
 -->
 # Constitucion de CarWash.Mobile
@@ -26,8 +26,9 @@ Registrar evidencia real y distinguir pruebas pendientes de pruebas exitosas.
 ### IV. Privacidad y seguridad
 Solicitar solo permisos necesarios. No guardar secretos ni claves de firma en
 el repositorio. El formulario de ingreso puede usar INTERNET para consumir la
-API especificada. Guardar localmente solo la direccion del servidor y el marcador
-de envio pendiente; no persistir clientes ni registrar cuerpos HTTP en logs.
+API especificada. Guardar localmente solo la direccion del servidor, el marcador
+de envio pendiente y el prefijo de pais WhatsApp configurable; este ultimo no
+contiene datos del cliente. No persistir clientes ni registrar cuerpos HTTP en logs.
 Limitar HTTP sin cifrar a servidores locales configurados y redes privadas
 confiables. No escribir registros ficticios en la base real para ejecutar pruebas.
 
@@ -56,4 +57,4 @@ Usar versionado semantico: cambios incompatibles de principios incrementan MAJOR
 guia ampliada incrementa MINOR y aclaraciones incrementan PATCH. Cada revision
 de cambios debe comprobar su cumplimiento y registrar excepciones.
 
-**Version**: 1.2.0 | **Ratificacion**: 2026-10-28 | **Ultima modificacion**: 2026-10-28
+**Version**: 1.3.0 | **Ratificacion**: 2026-10-28 | **Ultima modificacion**: 2026-11-06

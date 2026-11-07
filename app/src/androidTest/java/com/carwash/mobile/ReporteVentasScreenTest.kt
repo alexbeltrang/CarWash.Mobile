@@ -129,7 +129,7 @@ class ReporteVentasScreenTest {
         assertEquals(0, repo.requests.size)
     }
 
-    @Test fun administratorCanSwitchBetweenThreeExplicitDestinations() {
+    @Test fun administratorCanSwitchBetweenFourExplicitDestinations() {
         val repo = FakeRepo()
         val model = ReporteVentasViewModel(repo, Session(1, "U", true, "http://fixture/", "A".repeat(43), serverDate = "2026-11-03"))
         rule.setContent {
@@ -139,6 +139,7 @@ class ReporteVentasScreenTest {
                     when (destination) {
                         AppDestination.INGRESO -> Text("form-fixture")
                         AppDestination.VEHICULOS -> Text("vehicles-fixture")
+                        AppDestination.RETIRO -> Text("pickup-fixture")
                         AppDestination.REPORTE -> ReporteVentasScreen(model, onBack = { destination = AppDestination.INGRESO }, onLogout = {})
                     }
                 }
@@ -146,6 +147,8 @@ class ReporteVentasScreenTest {
         }
         rule.onNodeWithText("Vehículos").performClick()
         rule.onNodeWithText("vehicles-fixture").assertExists()
+        rule.onNodeWithText("Retiro").performClick()
+        rule.onNodeWithText("pickup-fixture").assertExists()
         rule.onNodeWithText("Ventas").performClick()
         rule.onNodeWithText("Consultar").performClick()
         rule.waitUntil(5_000) { repo.requests.isNotEmpty() }
@@ -157,6 +160,7 @@ class ReporteVentasScreenTest {
         rule.setContent { CarWashTheme { AppNavigation(false, AppDestination.INGRESO, {}) { Text("form-fixture") } } }
         rule.onNodeWithText("Ingreso").assertExists()
         rule.onNodeWithText("Vehículos").assertExists()
+        rule.onNodeWithText("Retiro").assertExists()
         rule.onNodeWithText("Ventas").assertDoesNotExist()
     }
 

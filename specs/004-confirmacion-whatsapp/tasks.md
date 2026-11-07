@@ -161,3 +161,124 @@ Evidencia T046-T049: ver quickstart, revision 2026-11-05. 79 pruebas API,
 84 JVM y 45 instrumentadas correctas, 0 fallos; una integracion opcional del
 reporte omitida sin URL de fixture. Compilacion/lint correctos (0 errores,
 6 advertencias). Meta aun no configurado; no se enviaron mensajes reales.
+
+## WhatsApp manual y automatico aprobado 2026-11-06
+
+- [X] T050 [US1] Agregar selector manual/automatico con manual inicial y copia en memoria tras ingreso completo en `app/src/main/java/com/carwash/mobile/ingreso/IngresoViewModel.kt`; probar ausencia de llamadas Meta, total confirmado, limpieza y errores en `app/src/test/java/com/carwash/mobile/ingreso/IngresoViewModelTest.kt`.
+- [X] T051 [US1] Mostrar vista previa y destinatario internacional corregible; abrir exclusivamente WhatsApp/Business sin afirmar entrega en `app/src/main/java/com/carwash/mobile/ingreso/IngresoScreen.kt` y `app/src/main/res/values/strings.xml`.
+- [X] T052 [US2] Verificar apertura simulada, destinatario, contenido, ausencia de app, no duplicacion y regresion del modo automatico en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`.
+- [X] T053 Actualizar `specs/004-confirmacion-whatsapp/contracts/api.md` y `specs/004-confirmacion-whatsapp/quickstart.md`; ejecutar pruebas, assembleDebug/lintDebug y generar `app/build/outputs/apk/debug/app-debug.apk`, sin instalar ni enviar mensajes reales.
+
+Evidencia T050-T053: 89 pruebas JVM y 15 instrumentadas de MainActivityTest
+correctas, sin fallos ni omisiones. assembleDebug/lintDebug correctos, 0 errores
+y 6 advertencias existentes. Aperturas WhatsApp simuladas; prueba en celular
+real pendiente. Sin llamadas reales a Meta, despliegue API ni instalacion APK.
+
+## Correccion de independencia de correo y WhatsApp 2026-11-06
+
+- [X] T054 [US1] Separar errores y respuestas tardias de correo del ingreso confirmado en `app/src/main/java/com/carwash/mobile/ingreso/IngresoViewModel.kt`; confirmar guardados inciertos mediante GET sin repetir escrituras en `app/src/main/java/com/carwash/mobile/ingreso/IngresoRepository.kt`, con regresion JVM.
+- [X] T055 [US2] Ofrecer WhatsApp manual tras actualizar turno existente y probar correo fallido/apertura sin duplicar ingreso en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`; aclarar revision requerida en `app/src/main/res/values/strings.xml`.
+- [X] T056 Actualizar `specs/004-confirmacion-whatsapp/contracts/api.md` y `specs/004-confirmacion-whatsapp/quickstart.md`, validar APK/lint/pruebas e instalar actualizacion conservando datos si el celular sigue autorizado, sin envios reales.
+
+Evidencia T054-T056: 93 pruebas JVM y 17 MainActivityTest correctas, 0 fallos
+y 0 errores. assembleDebug/lintDebug correctos. Instrumentacion limitada al
+AVD mediante ANDROID_SERIAL, sin instalar pruebas ni limpiar datos del celular.
+APK corregido instalado con adb install -r y MainActivity iniciada con Status: ok.
+Consultas de diagnostico solo lectura; sin turnos ficticios ni mensajes reales.
+
+## Apertura nativa de WhatsApp 2026-11-06
+
+- [X] T057 [US1] Reemplazar enlace web wa.me por whatsapp://send con phone y text codificados en `app/src/main/java/com/carwash/mobile/ingreso/IngresoScreen.kt`; actualizar comprobaciones de URI y caracteres especiales en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`.
+- [X] T058 [US2] Validar destinatario/texto, alternativa Business, app ausente y correo fallido en celular fisico; compilar/lint, actualizar `specs/004-confirmacion-whatsapp/quickstart.md` e instalar APK conservando datos del celular, sin enviar mensajes reales.
+
+Evidencia T057-T058: cinco MainActivityTest correctas en Xiaomi fisico mediante
+adb am instrument, usando MemorySettings/FakeRepository y aperturas interceptadas.
+JVM, assembleDebug, assembleDebugAndroidTest y lintDebug correctos. Ambos APK
+actualizados con install -r -t sin desinstalar CarWash; MainActivity Status: ok.
+Enlace nativo resuelto por WhatsApp instalado. El usuario solicito no usar emulador;
+se cerro sin ejecutar pruebas en el. Sin mensajes reales ni escrituras API.
+La vista previa dentro de la aplicacion WhatsApp real aun requiere confirmacion visual.
+
+## Diagnostico de registro incierto 2026-11-06
+
+- [X] T059 [US1] Conservar etapa del registro y codigo seguro en `app/src/main/java/com/carwash/mobile/ingreso/IngresoRepository.kt` y `app/src/main/java/com/carwash/mobile/ingreso/IngresoViewModel.kt`; probar etapas y ausencia de cuerpos HTTP en `app/src/test/java/com/carwash/mobile/ingreso/IngresoRepositoryTest.kt`.
+- [X] T060 [US2] Mostrar diagnostico mediante recursos en `app/src/main/java/com/carwash/mobile/ingreso/IngresoScreen.kt`, verificarlo en celular fisico con `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt` e instalar APK conservando datos; actualizar `specs/004-confirmacion-whatsapp/quickstart.md`.
+- [X] T061 [US1] Capturar etapa/codigo del fallo real, reparar con autorizacion la identidad SQLite de TurnoServicios mediante `Database/Repairs/20261028_TurnoServiciosIdentity.sql` de la API y verificar borrador en WhatsApp real; documentar en `specs/004-confirmacion-whatsapp/quickstart.md`, sin registros ficticios ni envios duplicados.
+- [X] T062 [US1] Agregar regresion aislada en `TurnoServiciosTests.cs` del proyecto hermano CarWashApi.Tests: reproducir HTTP500, conservar fila insertada e IDs existentes, permitir siguiente POST201 y rechazar esquemas sanos/no compatibles; reutilizar el script SQL existente.
+
+Evidencia T059-T060: 94 JVM y seis MainActivityTest en Xiaomi fisico correctas,
+0 fallos/errores/omisiones. assembleDebug, assembleDebugAndroidTest y lintDebug
+correctos. APK actualizado con install -r -t; MainActivity Status: ok. Sin API
+modificada ni mensajes reales. El fallo operativo original no esta resuelto:
+la excepcion original no estaba disponible y falta reproducirla con diagnostico.
+
+Evidencia posterior T061-T062: aviso real del turno 004 identifico servicios/HTTP500.
+Base operativa verificada: 404 relaciones, ocho IDs NULL y esquema sin clave.
+Tres pruebas xUnit y script aislado existentes correctos. Con autorizacion explicita,
+API detenida, respaldo SQLite verificado y reparacion aplicada. Resultado: 404 IDs
+unicos, asociaciones e IDs validos conservados; turnos/pagos identicos al respaldo.
+API original reiniciada sin recompilar y consultas reales responden HTTP200; turno004
+con una relacion, sin duplicados. Borrador nativo directo en Xiaomi: 159 caracteres,
+igualdad completa, placa/servicios/total correctos. +57 confirmado para destinatario
+manual; sin modificar celular guardado y sin pulsar Enviar. Usuario informo envio
+manual propio antes de repetir la prueba. Guardado nuevo desde CarWash no repetido.
+
+## Prefijo configurable y apertura automatica 2026-11-06
+
+- [X] T063 [US1] Persistir prefijo WhatsApp inicialmente +57 y normalizar solo destinatarios manuales locales en `app/src/main/java/com/carwash/mobile/ingreso/IngresoModels.kt` y `app/src/main/java/com/carwash/mobile/ingreso/IngresoViewModel.kt`, con regresion en `app/src/test/java/com/carwash/mobile/ingreso/IngresoViewModelTest.kt`.
+- [X] T064 [US2] Agregar configuracion de pais, apertura unica automatica tras confirmacion y boton solo para fallos/correcciones en `app/src/main/java/com/carwash/mobile/ingreso/IngresoScreen.kt`; textos en `app/src/main/res/values/strings.xml` y pruebas fisicas en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`.
+- [X] T065 Actualizar `specs/004-confirmacion-whatsapp/contracts/api.md` y `specs/004-confirmacion-whatsapp/quickstart.md`; validar JVM, APK, lint y 21 MainActivityTest en celular fisico e instalar actualizacion conservando datos, sin mensajes reales.
+
+Evidencia T063-T065: 96 JVM y 21 MainActivityTest correctas en Xiaomi fisico,
+0 fallos/errores/omisiones. assembleDebug/assembleDebugAndroidTest/lintDebug
+correctos; APK actualizado con install -r -t. Sin emulador, API modificada ni
+mensajes reales. Flujo nuevo de guardado real pendiente de proximo ingreso legitimo.
+
+## Limpieza tras apertura de WhatsApp 2026-11-06
+
+- [X] T066 [US1] Descartar copia y destinatario tras apertura correcta automatica o reintento en `app/src/main/java/com/carwash/mobile/ingreso/IngresoScreen.kt`, conservando mensaje ante fallos; probar siguiente placa y reintento sin duplicados en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`.
+- [X] T067 [US2] Actualizar `specs/004-confirmacion-whatsapp/contracts/api.md` y `specs/004-confirmacion-whatsapp/quickstart.md`, validar APK/JVM/lint, ejecutar regresion fisica e instalar conservando datos.
+
+Evidencia T066-T067: compilacion de ambos APK, JVM y lint correctos. En Xiaomi,
+23 MainActivityTest ejecutados: 22 correctos, uno fallo en cierre de ActivityScenario
+esperando DESTROYED; repeticion aislada del caso de siguiente placa correcta.
+Actualizacion install -r -t sin borrar datos. Sin escrituras API ni envios reales.
+
+## Formato visual del mensaje manual 2026-11-06
+
+- [X] T068 [US1] Mejorar encabezado, iconos, secciones y total destacado en `app/src/main/res/values/strings.xml` y formatear servicios desde recursos en `app/src/main/java/com/carwash/mobile/ingreso/IngresoScreen.kt`, sin cambiar datos ni importes.
+- [X] T069 [US2] Verificar contenido y codificacion Unicode en `app/src/androidTest/java/com/carwash/mobile/MainActivityTest.kt`, actualizar `specs/004-confirmacion-whatsapp/contracts/api.md` y `specs/004-confirmacion-whatsapp/quickstart.md`, validar JVM/APK/lint e instalar conservando datos.
+
+Evidencia T068-T069: dos pruebas enfocadas correctas en Xiaomi fisico; formato
+completo del Intent, emojis, negrita, servicios y total editado, codificacion y
+alternativa Business. assembleDebug/assembleDebugAndroidTest/JVM/lintDebug
+correctos. APK instalado con install -r -t. Sin mensajes reales; apariencia de
+burbuja enviada no verificada en esta revision. Apertura y limpieza conservadas.
+
+## Formato visual del correo de recepcion 2026-11-06
+
+- [X] T070 [US1] Mejorar BuildBody en `../CarWashApi/Services/EmailNotificationService.cs` con HTML escapado, iconos, tabla de servicios, total confirmado es-CO y alternativa de texto; conservar idempotencia y aviso de aprobacion.
+- [X] T071 [US1] Agregar EmailBody compatible con la firma anterior en `../CarWashApi/Services/IEmailClient.cs` y MIME alternativo UTF-8 en `../CarWashApi/Services/SmtpEmailClient.cs`, sin cambiar configuracion SMTP.
+- [X] T072 [US2] Validar contenido, importes, escape HTML, idempotencia, compatibilidad de texto y MIME SMTP loopback en `../CarWashApi.Tests/Services/EmailNotificationServiceTests.cs`; documentar evidencia y despliegue pendiente en contrato y quickstart.
+
+Evidencia T070-T072: cuatro casos xUnit correctos y compilacion API/pruebas
+correcta con artifacts-path temporal; SQLite temporal y SMTP loopback sin
+credenciales ni envios externos. Verificados HTML escapado, total confirmado
+distinto de suma de catalogo, es-CO, idempotencia, alternativa de texto y MIME
+UTF-8 con/sin HTML. API operativa no reemplazada/reiniciada; despliegue y
+apariencia final en buzon real pendientes de autorizacion. Sin cambios Android,
+emulador ni pruebas fisicas innecesarias para esta revision exclusiva de API.
+
+## Despliegue autorizado del correo HTML 2026-11-06
+
+- [X] T073 [US2] Con autorizacion explicita del usuario, repetir las cuatro pruebas de correo, publicar API en directorio temporal, respaldar binario previo, desplegar conservando configuracion y reiniciar perfil wifi; verificar SHA-256 e HTTP 200 local y por la IP usada por el celular.
+
+Evidencia T073: cuatro casos xUnit correctos y dotnet publish correcto. Copia
+previa before-email-html-20261106-160237 en LOCALAPPDATA/CarWash/ApiBackups,
+fuera de Git. Detenido solo PID 30884 identificado por su ejecutable; proceso
+nuevo PID 23956, inicio 16:03:55, bin/Debug/net9.0/Carwash.API.exe. Hash del DLL
+desplegado igual a publicacion: E3D38D4B03EAA46DCC5C75AFC228A74E1E229F39B49BB91ECB2270C096DC3CCF.
+Archivos appsettings del destino conservados y verificados por hash; mismo
+content root y perfil wifi. Swagger HTTP 200 en 127.0.0.1:5197 y 192.168.1.5:5197.
+No se ejecutaron endpoints de escritura ni de envio, ni se alteraron turnos/pagos.
+API nueva permanece operativa; apariencia en buzon real pendiente.

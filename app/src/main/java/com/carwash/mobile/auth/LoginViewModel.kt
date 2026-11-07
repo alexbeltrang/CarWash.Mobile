@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import java.time.Instant
 
 enum class LoginError { EMPTY, BAD_CREDENTIALS, UNREACHABLE, REPORT_SESSION_REQUIRED }
 
@@ -25,6 +26,7 @@ class LoginViewModel(
     private val repository: AuthRepository,
     private val store: SessionStore = NoSessionStore,
     private val elapsedRealtime: () -> Long = android.os.SystemClock::elapsedRealtime,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private var generation = 0L
     private var loginJob: Job? = null
@@ -32,6 +34,25 @@ class LoginViewModel(
     private var closesAt: Long? = null
     var state by mutableStateOf(LoginState())
         private set
+
+    init {
+        val saved = store.load()
+        val remaining = saved?.let { session ->
+            val local = (session.localExpiresAtMillis ?: 0L) - nowMillis()
+            val server = runCatching { Instant.parse(session.expiresAt).toEpochMilli() - nowMillis() }.getOrDefault(0L)
+            minOf(local, server, SESSION_DURATION_MILLIS)
+        } ?: 0L
+        if (saved?.accessToken?.matches(Regex("[A-Za-z0-9_-]{43}")) == true && saved.userId > 0 && remaining > 0L) {
+            state = LoginState(session = saved)
+            scheduleExpiry(remaining)
+        } else store.save(null)
+    }
+
+    private fun scheduleExpiry(duration: Long) {
+        closesAt = elapsedRealtime() + duration
+        expiryJob?.cancel()
+        expiryJob = viewModelScope.launch { delay(duration); logout() }
+    }
 
     fun updateUser(value: String) { state = state.copy(userName = value, error = null) }
     fun updatePassword(value: String) { state = state.copy(password = value, error = null) }
@@ -53,14 +74,11 @@ class LoginViewModel(
                     if (current.requiresReentry && outcome.session.accessToken == null) {
                         current.copy(password = "", loading = false, error = LoginError.REPORT_SESSION_REQUIRED)
                     } else {
-                        store.save(outcome.session.metadata())
-                        closesAt = elapsedRealtime() + SESSION_DURATION_MILLIS
-                        expiryJob?.cancel()
-                        expiryJob = viewModelScope.launch {
-                            delay(SESSION_DURATION_MILLIS)
-                            logout()
-                        }
-                        LoginState(session = outcome.session)
+                        val session = if (outcome.session.accessToken == null) outcome.session else
+                            outcome.session.copy(localExpiresAtMillis = nowMillis() + SESSION_DURATION_MILLIS)
+                        store.save(session)
+                        scheduleExpiry(SESSION_DURATION_MILLIS)
+                        LoginState(session = session)
                     }
                 }
                 LoginOutcome.BadCredentials -> state.copy(loading = false, password = "", error = LoginError.BAD_CREDENTIALS)
@@ -83,6 +101,7 @@ class LoginViewModel(
     fun requestReportReentry() {
         generation++
         loginJob?.cancel()
+        store.save(null)
         state = LoginState(session = state.session?.metadata(), requiresReentry = true)
     }
 
@@ -94,7 +113,7 @@ class LoginViewModel(
 
     fun reportForbidden() {
         val session = state.session?.copy(isAdmin = false)
-        store.save(session?.metadata())
+        store.save(session)
         state = LoginState(session = session)
     }
 

@@ -117,7 +117,7 @@ fun PlateCaptureScreen(onConfirm: (String) -> Unit, onManual: () -> Unit, onCanc
         modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(if (reviewing) R.string.review_plate else R.string.capture_plate)) },
+                title = { com.carwash.mobile.empresa.EmpresaHeader(stringResource(if (reviewing) R.string.review_plate else R.string.capture_plate)) },
                 navigationIcon = {
                     IconButton(onClick = onCancel, modifier = Modifier.testTag("closeCamera")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.keep_editing))

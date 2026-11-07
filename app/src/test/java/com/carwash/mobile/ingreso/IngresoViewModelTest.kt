@@ -38,6 +38,90 @@ class IngresoViewModelTest {
     }
 
     @Test
+    fun pickupCodeFromServerIsAddedToManualReceipt() = runTest(dispatcher) {
+        val model = model(FakeRepository())
+        model.configurePickup { _, _ -> "0123456789ABCDEF" }
+        runCurrent()
+        fill(model); model.save(); runCurrent()
+        assertEquals("0123456789ABCDEF", model.state.manualWhatsAppReceipt?.pickupCode)
+        assertTrue(model.state.manualWhatsAppAutoOpen)
+    }
+
+    @Test
+    fun companyIsFrozenInManualReceiptAndReadFailureDoesNotRegisterAgain() = runTest(dispatcher) {
+        val source = FakeRepository()
+        val model = model(source)
+        var company = com.carwash.mobile.empresa.EmpresaDto(revision = 1, nombreComercial = "Empresa vigente")
+        model.configureCompany { company }
+        runCurrent(); fill(model); model.save(); runCurrent()
+        assertEquals(company, model.state.manualWhatsAppReceipt?.empresa)
+        company = company.copy(revision = 2, nombreComercial = "Empresa nueva")
+        assertEquals("Empresa vigente", model.state.manualWhatsAppReceipt?.empresa?.nombreComercial)
+        model.configureCompany { throw IOException() }
+        fill(model); model.save(); runCurrent()
+        assertEquals(2, source.calls)
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertFalse(model.state.reviewRequired)
+        assertNull(model.state.manualWhatsAppReceipt?.empresa)
+        assertTrue(model.state.manualWhatsAppAutoOpen)
+    }
+
+    @Test
+    fun automaticPrintFollowsConfirmedSaveAndFailureDoesNotRegisterAgain() = runTest(dispatcher) {
+        val source = FakeRepository().apply { saveGate = CompletableDeferred() }
+        val model = model(source)
+        val printGate = CompletableDeferred<String>()
+        var prints = 0
+        model.configureEntryPrinting { url, id, services ->
+            assertEquals("http://10.0.2.2:5197/", url)
+            assertEquals(1, id)
+            assertEquals(setOf(1), services)
+            prints++
+            printGate.await()
+        }
+        runCurrent(); fill(model); model.save(); model.save(); runCurrent()
+        assertEquals(0, prints)
+        source.saveGate!!.complete(Unit); runCurrent()
+        assertEquals(1, prints)
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertFalse(model.state.saving)
+        printGate.completeExceptionally(IOException()); runCurrent()
+        assertEquals("UNKNOWN", model.state.entryPrintStatus)
+        assertFalse(model.state.reviewRequired)
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun updatingExistingEntryDoesNotAutomaticallyPrint() = runTest(dispatcher) {
+        val source = FakeRepository().apply { lookupResult = PlateLookup(null, emptyList(), InProcessTurn(
+            9, "T-1", "ANA", "+573000000000", "ana@example.com", "KIA", "", 3,
+            BigDecimal("20000"), BigDecimal("15000"), listOf(1))) }
+        val model = model(source)
+        var prints = 0
+        model.configureEntryPrinting { _, _, _ -> prints++; "PENDING" }
+        runCurrent(); model.edit { it.copy(plate = "ABC123") }; model.lookup(); runCurrent()
+        model.save(); runCurrent()
+        assertEquals(NoticeKind.UPDATED, model.state.notice?.kind)
+        assertEquals(0, prints)
+        assertEquals(0, source.calls)
+    }
+
+    @Test
+    fun pickupFailurePreservesSavedTurnAndDoesNotOpenIncompleteReceipt() = runTest(dispatcher) {
+        val source = FakeRepository()
+        val model = model(source)
+        model.configurePickup { _, _ -> throw IOException() }
+        runCurrent()
+        fill(model); model.save(); runCurrent()
+        assertEquals(1, source.calls)
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertTrue(model.state.pickupReceiptUnavailable)
+        assertFalse(model.state.reviewRequired)
+        assertFalse(model.state.manualWhatsAppAutoOpen)
+        assertNull(model.state.manualWhatsAppReceipt)
+    }
+
+    @Test
     fun invalidFormNeverCallsRegister() = runTest(dispatcher) {
         val source = FakeRepository()
         val model = model(source)
@@ -229,6 +313,10 @@ class IngresoViewModelTest {
         assertEquals(NoticeKind.UPDATED, model.state.notice?.kind)
         assertNull(model.state.editingTurnId)
         assertEquals(IngresoForm(), model.state.form)
+        assertEquals("ABC123", model.state.manualWhatsAppReceipt?.plate)
+        assertEquals("MAZDA", model.state.manualWhatsAppReceipt?.brand)
+        assertEquals(0, source.emailCalls)
+        assertEquals(0, source.whatsAppCalls)
     }
 
     @Test
@@ -296,6 +384,7 @@ class IngresoViewModelTest {
         val model = model(source)
         runCurrent()
         fill(model)
+        model.selectWhatsAppMode(WhatsAppMode.AUTOMATIC)
         model.save()
         runCurrent()
         assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
@@ -331,6 +420,7 @@ class IngresoViewModelTest {
         val model = model(source)
         runCurrent()
         fill(model)
+        model.selectWhatsAppMode(WhatsAppMode.AUTOMATIC)
         model.save()
         runCurrent()
         assertEquals("UNKNOWN", model.state.whatsAppStatus)
@@ -350,6 +440,7 @@ class IngresoViewModelTest {
         val model = model(source)
         runCurrent()
         fill(model)
+        model.selectWhatsAppMode(WhatsAppMode.AUTOMATIC)
         model.save()
         runCurrent()
         assertTrue(model.state.whatsAppCanRetry)
@@ -367,6 +458,7 @@ class IngresoViewModelTest {
         val model = model(source)
         runCurrent()
         fill(model)
+        model.selectWhatsAppMode(WhatsAppMode.AUTOMATIC)
         model.save()
         runCurrent()
         model.clearWhatsAppStatus()
@@ -374,6 +466,179 @@ class IngresoViewModelTest {
         runCurrent()
         assertNull(model.state.whatsAppStatus)
         assertNull(model.state.whatsAppTurnId)
+    }
+
+    @Test
+    fun manualIsDefaultAndKeepsConfirmedSnapshotWithoutAutomaticSend() = runTest(dispatcher) {
+        val source = FakeRepository()
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.edit { it.copy(customer = "ANA", phone = "+57 300 000 0000", brand = "KIA", value = "17500.50") }
+        model.save()
+        runCurrent()
+        val receipt = requireNotNull(model.state.manualWhatsAppReceipt)
+        assertEquals(WhatsAppMode.MANUAL, model.state.whatsAppMode)
+        assertEquals("ABC123", receipt.plate)
+        assertEquals("ANA", receipt.customer)
+        assertEquals("KIA", receipt.brand)
+        assertEquals(listOf("Lavado"), receipt.services.map { it.nombre })
+        assertEquals(BigDecimal("17500.50"), receipt.total)
+        assertEquals(1, source.emailCalls)
+        assertEquals(0, source.whatsAppCalls)
+        assertNull(model.state.whatsAppStatus)
+        model.edit { it.copy(plate = "XYZ789", value = "999") }
+        model.editManualWhatsAppPhone("+573111111111")
+        assertEquals("ABC123", model.state.manualWhatsAppReceipt?.plate)
+        assertEquals(BigDecimal("17500.50"), model.state.manualWhatsAppReceipt?.total)
+        assertEquals("+573111111111", model.state.manualWhatsAppReceipt?.phone)
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun manualReceiptRequiresCompleteSave() = runTest(dispatcher) {
+        val source = FakeRepository().apply { failAfterWrite = true }
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        assertNull(model.state.manualWhatsAppReceipt)
+        assertTrue(model.state.reviewRequired)
+        assertFalse(model.state.manualWhatsAppAutoOpen)
+        assertEquals(0, source.whatsAppCalls)
+    }
+
+    @Test
+    fun countryPrefixIsRememberedAndUsedForConfirmedManualReceipt() = runTest(dispatcher) {
+        val settings = MemorySettings()
+        val source = FakeRepository()
+        val model = IngresoViewModel(settings) { source }
+        runCurrent()
+        assertFalse(model.configureWhatsAppCountryCode("57"))
+        assertTrue(model.configureWhatsAppCountryCode("+52"))
+        fill(model)
+        model.edit { it.copy(phone = "3000000000") }
+        model.save()
+        runCurrent()
+        assertEquals("+52", settings.whatsAppCountryCode)
+        assertEquals("+523000000000", model.state.manualWhatsAppReceipt?.phone)
+        assertTrue(model.state.manualWhatsAppAutoOpen)
+        model.consumeManualWhatsAppAutoOpen()
+        model.consumeManualWhatsAppAutoOpen()
+        assertFalse(model.state.manualWhatsAppAutoOpen)
+        val restored = IngresoViewModel(settings) { source }
+        runCurrent()
+        assertEquals("+52", restored.state.whatsAppCountryCode)
+        assertFalse(restored.state.manualWhatsAppAutoOpen)
+        assertEquals(1, source.calls)
+    }
+
+    @Test
+    fun configuredCountryPrefixAppliesOnlyToLocalWhatsAppRecipients() {
+        assertEquals("+573000000000", whatsAppRecipient("300 000 0000", "+57"))
+        assertEquals("+523000000000", whatsAppRecipient("3000000000", "+52"))
+        assertEquals("+13005550123", whatsAppRecipient("+1 (300) 555-0123", "+57"))
+        assertNull(whatsAppRecipient("", "+57"))
+        assertNull(whatsAppRecipient("ABC3000000000", "+57"))
+        assertNull(whatsAppRecipient("3000000000", "57"))
+        assertNull(whatsAppRecipient("3000000000", "+000"))
+        assertNull(whatsAppRecipient("+003000000000", "+57"))
+    }
+
+    @Test
+    fun manualReceiptIsClearedWhenDismissedClearedOrChangingServer() = runTest(dispatcher) {
+        val source = FakeRepository()
+        val model = model(source)
+        runCurrent()
+        suspend fun saveReceipt() {
+            fill(model)
+            model.save()
+            runCurrent()
+            assertNotNull(model.state.manualWhatsAppReceipt)
+        }
+        saveReceipt()
+        model.clearManualWhatsApp()
+        assertNull(model.state.manualWhatsAppReceipt)
+        saveReceipt()
+        model.clear()
+        assertNull(model.state.manualWhatsAppReceipt)
+        saveReceipt()
+        model.connect("http://192.168.1.15:5197")
+        assertNull(model.state.manualWhatsAppReceipt)
+        runCurrent()
+    }
+
+    @Test
+    fun nextSaveClearsOldManualReceiptAndAutomaticModeDoesNotPrepareOne() = runTest(dispatcher) {
+        val source = FakeRepository()
+        val model = model(source)
+        runCurrent()
+        fill(model)
+        model.save()
+        runCurrent()
+        assertNotNull(model.state.manualWhatsAppReceipt)
+        fill(model)
+        model.selectWhatsAppMode(WhatsAppMode.AUTOMATIC)
+        source.saveGate = CompletableDeferred()
+        model.save()
+        assertNull(model.state.manualWhatsAppReceipt)
+        model.selectWhatsAppMode(WhatsAppMode.MANUAL)
+        assertEquals(WhatsAppMode.AUTOMATIC, model.state.whatsAppMode)
+        runCurrent()
+        source.saveGate!!.complete(Unit)
+        runCurrent()
+        assertNull(model.state.manualWhatsAppReceipt)
+        assertEquals(1, source.whatsAppCalls)
+    }
+
+    @Test
+    fun manualPhoneRequiresExplicitInternationalCodeWithoutGuessing() {
+        assertEquals("+573000000000", normalizeWhatsAppPhone(" +57 (300) 000-0000 "))
+        listOf("3000000000", "", "+0123456789", "+123", "+1234567890123456", "+57300abc0000")
+            .forEach { assertNull(normalizeWhatsAppPhone(it)) }
+    }
+
+    @Test
+    fun emailExceptionNeverBlocksManualWhatsAppOrMarksRegistrationUncertain() = runTest(dispatcher) {
+        val source = FakeRepository().apply { failEmail = true }
+        val settings = MemorySettings()
+        val model = IngresoViewModel(settings) { source }
+        runCurrent()
+        fill(model)
+        model.edit { it.copy(phone = "+573000000000") }
+        model.save()
+        runCurrent()
+        assertEquals("UNKNOWN", model.state.notificationStatus)
+        assertEquals(NoticeKind.SAVED, model.state.notice?.kind)
+        assertFalse(model.state.reviewRequired)
+        assertNull(settings.pendingTurn)
+        assertEquals("ABC123", model.state.manualWhatsAppReceipt?.plate)
+        assertEquals("+573000000000", model.state.manualWhatsAppReceipt?.phone)
+        assertEquals(1, source.calls)
+        assertEquals(0, source.whatsAppCalls)
+    }
+
+    @Test
+    fun failedUpdateDoesNotPrepareManualConfirmation() = runTest(dispatcher) {
+        val source = FakeRepository().apply {
+            failUpdate = true
+            lookupResult = PlateLookup(null, emptyList(), InProcessTurn(
+                9, "T-1", "ANA", "+573000000000", "ana@example.com", "KIA", "",
+                3, BigDecimal("20000"), BigDecimal("15000"), listOf(1),
+            ))
+        }
+        val model = model(source)
+        runCurrent()
+        model.edit { it.copy(plate = "ABC123") }
+        model.lookup()
+        runCurrent()
+        model.save()
+        runCurrent()
+        assertEquals(NoticeKind.SAVE_FAILED, model.state.notice?.kind)
+        assertNull(model.state.manualWhatsAppReceipt)
+        assertEquals(0, source.calls)
+        assertEquals(0, source.emailCalls)
     }
 
     private fun model(source: FakeRepository) = IngresoViewModel(MemorySettings()) { source }
@@ -388,6 +653,7 @@ class IngresoViewModelTest {
         override var serverUrl = "http://10.0.2.2:5197/"
         override var backupUrl = ""
         override var pendingTurn: String? = null
+        override var whatsAppCountryCode = "+57"
     }
 
     private class FakeRepository : IngresoRepository {
@@ -400,7 +666,9 @@ class IngresoViewModelTest {
         var lookupResult = PlateLookup(null, emptyList())
         var updatedId: Int? = null
         var updatedForm: IngresoForm? = null
+        var failUpdate = false
         var emailCalls = 0
+        var failEmail = false
         var whatsAppCalls = 0
         var whatsAppRetries = 0
         var failWhatsApp = false
@@ -409,6 +677,7 @@ class IngresoViewModelTest {
 
         override suspend fun notifyEmail(idTurno: Int): EmailNotificationResult {
             emailCalls++
+            if (failEmail) throw IOException("Email unavailable")
             return EmailNotificationResult(idTurno, "ACCEPTED", "NONE")
         }
 
@@ -424,6 +693,7 @@ class IngresoViewModelTest {
         }
 
         override suspend fun updateInProcess(idTurno: Int, form: IngresoForm) {
+            if (failUpdate) throw IOException("Update unavailable")
             updatedId = idTurno
             updatedForm = form
         }

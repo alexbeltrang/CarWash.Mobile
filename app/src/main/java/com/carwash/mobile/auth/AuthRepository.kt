@@ -19,8 +19,9 @@ data class Session(
     val expiresAt: String? = null,
     val serverDate: String? = null,
     val idleTimeoutSeconds: Int? = null,
+    val localExpiresAtMillis: Long? = null,
 ) {
-    fun metadata() = copy(accessToken = null, expiresAt = null, serverDate = null, idleTimeoutSeconds = null)
+    fun metadata() = copy(accessToken = null, expiresAt = null, serverDate = null, idleTimeoutSeconds = null, localExpiresAtMillis = null)
     override fun toString() = "Session(userId=$userId, isAdmin=$isAdmin, baseUrl=$baseUrl)"
 }
 

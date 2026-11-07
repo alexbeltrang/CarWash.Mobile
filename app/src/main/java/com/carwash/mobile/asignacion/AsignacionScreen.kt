@@ -38,7 +38,7 @@ fun AsignacionScreen(model: AsignacionViewModel, onBack: () -> Unit, onLogout: (
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.vehicles_title)) },
+                title = { com.carwash.mobile.empresa.EmpresaHeader(stringResource(R.string.vehicles_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.vehicles_back))

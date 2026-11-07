@@ -89,7 +89,13 @@ interface IngresoRepository {
 }
 
 class CashClosedException : IOException()
-class RegistrationException(val uncertain: Boolean, val turnNumber: String?, cause: Exception) : IOException(cause)
+enum class RegistrationStage { DAILY, TURN, SERVICES }
+class RegistrationException(
+    val uncertain: Boolean,
+    val turnNumber: String?,
+    cause: Exception,
+    val stage: RegistrationStage? = null,
+) : IOException(cause)
 
 class ApiIngresoRepository(
     private val api: CarWashApi,
@@ -140,6 +146,7 @@ class ApiIngresoRepository(
         require(form.errors().isEmpty())
         var started = false
         var number: String? = null
+        var stage = RegistrationStage.DAILY
         try {
             val cash = api.cash().optional()?.takeIf { it.estado && it.idCaja > 0 }
                 ?: throw CashClosedException()
@@ -155,6 +162,7 @@ class ApiIngresoRepository(
             beforeWrite(number)
             started = true
             if (existing == null) api.createDaily(daily) else api.updateDaily(existing.id, daily).requireSuccess()
+            stage = RegistrationStage.TURN
             val saved = api.createTurn(
                 TurnRequest(
                     numeroTurno = number,
@@ -173,6 +181,7 @@ class ApiIngresoRepository(
                 ),
             )
             check(saved.idTurno > 0)
+            stage = RegistrationStage.SERVICES
             for (serviceId in form.serviceIds) {
                 api.createTurnService(TurnServiceRequest(serviceId, saved.idTurno)).requireSuccess()
             }
@@ -182,7 +191,30 @@ class ApiIngresoRepository(
         } catch (closed: CashClosedException) {
             throw closed
         } catch (failure: Exception) {
-            throw RegistrationException(started, number, failure)
+            if (started && number != null) {
+                confirmedRegistration(form, number)?.let { return it }
+            }
+            throw RegistrationException(started, number, failure, stage)
+        }
+    }
+
+    private suspend fun confirmedRegistration(form: IngresoForm, number: String): SavedTurn? {
+        return try {
+            val turn = api.inProcess(form.plate.trim().uppercase(Locale.ROOT)).optional() ?: return null
+            val matches = turn.idTurno > 0 && turn.numeroTurno == number &&
+                turn.idTipoVehiculo == form.typeId && turn.idServicios.toSet() == form.serviceIds &&
+                turn.nombreCliente.orEmpty() == form.customer.trim().uppercase(Locale.ROOT) &&
+                turn.numeroCelular.orEmpty() == form.phone.trim() &&
+                turn.correoElectronico.orEmpty() == form.email.trim() &&
+                turn.marca.orEmpty() == form.brand.trim().uppercase(Locale.ROOT) &&
+                turn.observaciones.orEmpty() == form.observations.trim().uppercase(Locale.ROOT) &&
+                turn.valor.compareTo(requireNotNull(parseAmount(form.value))) == 0 &&
+                turn.valorBaseComision.compareTo(requireNotNull(parseAmount(form.baseValue))) == 0
+            if (matches) SavedTurn(turn.idTurno, number) else null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
         }
     }
 

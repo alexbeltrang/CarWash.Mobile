@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -46,6 +47,16 @@ import com.carwash.mobile.reportes.ReporteVentasScreen
 import com.carwash.mobile.reportes.ReporteVentasViewModel
 import com.carwash.mobile.reportes.ReportStatus
 import com.carwash.mobile.ui.theme.CarWashTheme
+import com.carwash.mobile.retiro.ApiRetiroRepository
+import com.carwash.mobile.retiro.IssueReceipt
+import com.carwash.mobile.retiro.RetiroScreen
+import androidx.compose.material.icons.filled.Print
+import com.carwash.mobile.retiro.RetiroViewModel
+import com.carwash.mobile.retiro.RetiroError
+import com.carwash.mobile.empresa.ApiEmpresaRepository
+import com.carwash.mobile.empresa.EmpresaViewModel
+import com.carwash.mobile.empresa.LocalEmpresa
+import com.carwash.mobile.empresa.LocalEmpresaRefresh
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,9 +90,45 @@ class MainActivity : ComponentActivity() {
                         login.cancelReentry()
                     })
                 } else {
-                    val model: IngresoViewModel = viewModel(factory = viewModelFactory {
-                        initializer { IngresoViewModel(settings) }
+                    val company: EmpresaViewModel = viewModel(key = "empresa:${session.userId}:${session.baseUrl}:${session.expiresAt}", factory = viewModelFactory {
+                        initializer { EmpresaViewModel(ApiEmpresaRepository(session)) }
                     })
+                    LaunchedEffect(session, destination) { company.refresh() }
+                    DisposableEffect(company) {
+                        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) company.refresh() }
+                        lifecycle.addObserver(observer)
+                        onDispose { lifecycle.removeObserver(observer); company.clear() }
+                    }
+                    LaunchedEffect(company.sessionRequired) { if (company.sessionRequired) login.logout() }
+                    val model: IngresoViewModel = viewModel(key = "ingreso:${session.userId}:${session.baseUrl}:${session.expiresAt}", factory = viewModelFactory {
+                        initializer { IngresoViewModel(settings).apply {
+                            configureCompany { url ->
+                                val current = checkNotNull(login.state.session)
+                                check(current.baseUrl.trimEnd('/') == url.trimEnd('/'))
+                                ApiEmpresaRepository(current).get()
+                            }
+                            configurePickup { url, id ->
+                                val current = checkNotNull(login.state.session)
+                                check(current.baseUrl.trimEnd('/') == url.trimEnd('/'))
+                                ApiRetiroRepository(current).issue(IssueReceipt(idTurno = id)).codigo
+                            }
+                            configureEntryPrinting { url, id, services ->
+                                val current = checkNotNull(login.state.session)
+                                check(current.baseUrl.trimEnd('/') == url.trimEnd('/'))
+                                ApiRetiroRepository(current).printEntry(id, services).estado
+                            }
+                        } }
+                    })
+                    val pickup: RetiroViewModel = viewModel(key = "pickup:${session.userId}:${session.baseUrl}:${session.expiresAt}", factory = viewModelFactory {
+                        initializer { RetiroViewModel(ApiRetiroRepository(session)) }
+                    })
+                    LaunchedEffect(pickup.state.error) {
+                        if (pickup.state.error == RetiroError.SESSION_REQUIRED) {
+                            pickup.clear()
+                            destination = AppDestination.INGRESO
+                            login.logout()
+                        }
+                    }
                     val report: ReporteVentasViewModel = viewModel(factory = viewModelFactory {
                         initializer { ReporteVentasViewModel(ApiReporteVentasRepository(session), session) }
                     })
@@ -102,10 +149,13 @@ class MainActivity : ComponentActivity() {
                     }
                     BackHandler(enabled = destination != AppDestination.INGRESO) { destination = AppDestination.INGRESO }
                     val logout = {
+                        company.clear()
                         report.clear()
+                        pickup.clear()
                         destination = AppDestination.INGRESO
                         login.logout()
                     }
+                    CompositionLocalProvider(LocalEmpresa provides company.empresa, LocalEmpresaRefresh provides company::refresh) {
                     AppNavigation(session.isAdmin, destination, onDestination = { target ->
                         login.checkSessionExpiry()
                         if (login.state.session != null) destination = target
@@ -121,7 +171,9 @@ class MainActivity : ComponentActivity() {
                             AppDestination.REPORTE -> if (report.ownsSession(session) && session.accessToken != null) {
                                 ReporteVentasScreen(report, onBack = { destination = AppDestination.INGRESO }, onLogout = logout)
                             }
+                            AppDestination.RETIRO -> RetiroScreen(pickup, onBack = { destination = AppDestination.INGRESO })
                         }
+                    }
                     }
                 }
             }
@@ -134,11 +186,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class AppDestination { INGRESO, VEHICULOS, REPORTE }
+enum class AppDestination { INGRESO, VEHICULOS, RETIRO, REPORTE }
 
 @Composable
 fun AppNavigation(isAdmin: Boolean, destination: AppDestination, onDestination: (AppDestination) -> Unit, content: @Composable () -> Unit) {
-    val destinations = if (isAdmin) AppDestination.entries else listOf(AppDestination.INGRESO, AppDestination.VEHICULOS)
+    val destinations = if (isAdmin) AppDestination.entries else listOf(AppDestination.INGRESO, AppDestination.VEHICULOS, AppDestination.RETIRO)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxWidth >= 600.dp) {
             Row(Modifier.fillMaxSize()) {
@@ -169,10 +221,12 @@ private fun destinationIcon(destination: AppDestination) = when (destination) {
     AppDestination.INGRESO -> Icons.Default.Home
     AppDestination.VEHICULOS -> Icons.Default.DirectionsCar
     AppDestination.REPORTE -> Icons.Default.Assessment
+    AppDestination.RETIRO -> Icons.Default.Print
 }
 
 private fun destinationLabel(destination: AppDestination) = when (destination) {
     AppDestination.INGRESO -> R.string.nav_ingreso
     AppDestination.VEHICULOS -> R.string.nav_vehicles
     AppDestination.REPORTE -> R.string.nav_sales
+    AppDestination.RETIRO -> R.string.nav_reprint
 }

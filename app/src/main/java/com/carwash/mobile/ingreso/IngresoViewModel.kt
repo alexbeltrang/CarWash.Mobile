@@ -17,6 +17,9 @@ interface ServerSettings {
         get() = ""
         set(_) {}
     var pendingTurn: String?
+    var whatsAppCountryCode: String
+        get() = "+57"
+        set(_) {}
 }
 
 class AndroidServerSettings(context: Context, private val defaultUrl: String) : ServerSettings {
@@ -33,10 +36,19 @@ class AndroidServerSettings(context: Context, private val defaultUrl: String) : 
     override var pendingTurn: String?
         get() = preferences.getString("pendingTurn", null)
         set(value) { check(preferences.edit().putString("pendingTurn", value).commit()) }
+
+    override var whatsAppCountryCode: String
+        get() = preferences.getString("whatsAppCountryCode", "+57").orEmpty()
+        set(value) { preferences.edit().putString("whatsAppCountryCode", value).apply() }
 }
 
 enum class NoticeKind { CONNECTION_FAILED, INVALID_SERVER, LOOKUP_FAILED, NOT_FOUND, CLOSED_CASH, INVALID_FORM, SAVED, SAVE_FAILED, REVIEW_REQUIRED, IN_PROCESS, UPDATED }
-data class Notice(val kind: NoticeKind, val detail: String = "")
+data class Notice(
+    val kind: NoticeKind,
+    val detail: String = "",
+    val registrationStage: RegistrationStage? = null,
+    val failureCode: String? = null,
+)
 
 data class IngresoState(
     val serverUrl: String = "",
@@ -62,7 +74,14 @@ data class IngresoState(
     val whatsAppStatus: String? = null,
     val whatsAppCanRetry: Boolean = false,
     val whatsAppSending: Boolean = false,
+    val whatsAppMode: WhatsAppMode = WhatsAppMode.MANUAL,
+    val whatsAppCountryCode: String = "+57",
+    val manualWhatsAppReceipt: ManualWhatsAppReceipt? = null,
+    val manualWhatsAppAutoOpen: Boolean = false,
+    val pickupReceiptUnavailable: Boolean = false,
     val editingTurnId: Int? = null,
+    val entryPrintTurnId: Int? = null,
+    val entryPrintStatus: String? = null,
 )
 
 class IngresoViewModel(
@@ -74,6 +93,7 @@ class IngresoViewModel(
         IngresoState(
             serverUrl = settings.serverUrl,
             backupUrl = settings.backupUrl,
+            whatsAppCountryCode = normalizeWhatsAppCountryCode(settings.whatsAppCountryCode) ?: "+57",
             reviewRequired = settings.pendingTurn != null,
             pendingNumber = settings.pendingTurn.orEmpty(),
             notice = settings.pendingTurn?.let { Notice(NoticeKind.REVIEW_REQUIRED, it) },
@@ -83,6 +103,13 @@ class IngresoViewModel(
 
     private var repository: IngresoRepository? = null
     private var lookupJob: Job? = null
+    private var pickupCodeProvider: (suspend (String, Int) -> String)? = null
+    private var entryPrintProvider: (suspend (String, Int, Set<Int>) -> String)? = null
+    private var companyProvider: (suspend (String) -> com.carwash.mobile.empresa.EmpresaDto?)? = null
+
+    fun configurePickup(provider: suspend (String, Int) -> String) { pickupCodeProvider = provider }
+    fun configureEntryPrinting(provider: suspend (String, Int, Set<Int>) -> String) { entryPrintProvider = provider }
+    fun configureCompany(provider: suspend (String) -> com.carwash.mobile.empresa.EmpresaDto?) { companyProvider = provider }
 
     init {
         if (state.serverUrl.isNotBlank()) connect(state.serverUrl)
@@ -105,6 +132,8 @@ class IngresoViewModel(
             history = if (changed) emptyList() else state.history,
             catalog = if (changed) Catalog(emptyList(), emptyList(), null) else state.catalog,
             searched = if (changed) false else state.searched,
+            manualWhatsAppReceipt = if (changed) null else state.manualWhatsAppReceipt,
+            manualWhatsAppAutoOpen = if (changed) false else state.manualWhatsAppAutoOpen,
             notice = if (state.reviewRequired) state.notice else null,
         )
         val primary = repositoryFactory(url)
@@ -263,15 +292,20 @@ class IngresoViewModel(
         }
         val source = repository ?: return
         val form = state.form
+        val whatsAppMode = state.whatsAppMode
+        val selectedServices = state.catalog.services.filter { it.idServicio in form.serviceIds && it.idTipoVehiculo == form.typeId }
         val editingId = state.editingTurnId
         if (editingId != null) {
-            state = state.copy(saving = true, errors = emptySet(), notice = null)
+            state = state.copy(saving = true, errors = emptySet(), notice = null, manualWhatsAppReceipt = null, manualWhatsAppAutoOpen = false, pickupReceiptUnavailable = false)
             viewModelScope.launch {
                 try {
                     source.updateInProcess(editingId, form)
+                    val receipt = if (whatsAppMode == WhatsAppMode.MANUAL) prepareManualReceipt(form, selectedServices, editingId) else null
                     state = state.copy(
                         form = IngresoForm(), history = emptyList(), searched = false,
                         saving = false, editingTurnId = null,
+                        manualWhatsAppReceipt = receipt,
+                        manualWhatsAppAutoOpen = receipt != null,
                         notice = Notice(NoticeKind.UPDATED, form.plate.trim().uppercase(Locale.ROOT)),
                     )
                 } catch (cancelled: CancellationException) {
@@ -288,8 +322,12 @@ class IngresoViewModel(
             notice = null,
             notificationTurnId = null,
             notificationStatus = null,
+            entryPrintTurnId = null, entryPrintStatus = null,
+            pickupReceiptUnavailable = false,
             whatsAppTurnId = null, whatsAppStatus = null,
             whatsAppCanRetry = false, whatsAppSending = false,
+            manualWhatsAppReceipt = null,
+            manualWhatsAppAutoOpen = false,
         )
         viewModelScope.launch {
             try {
@@ -298,13 +336,28 @@ class IngresoViewModel(
                     state = state.copy(pendingNumber = number)
                 }
                 settings.pendingTurn = null
+                val printUrl = if (state.usingBackup) state.backupUrl else state.serverUrl
+                val printer = entryPrintProvider
+                if (printer != null) {
+                    state = state.copy(entryPrintTurnId = saved.idTurno, entryPrintStatus = "PENDING")
+                    viewModelScope.launch {
+                        val status = try { printer(printUrl, saved.idTurno, form.serviceIds) }
+                        catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) { "UNKNOWN" }
+                        if (repository === source && state.entryPrintTurnId == saved.idTurno)
+                            state = state.copy(entryPrintStatus = status)
+                    }
+                }
+                val receipt = if (whatsAppMode == WhatsAppMode.MANUAL) prepareManualReceipt(form, selectedServices, saved.idTurno) else null
                 state = state.copy(
                     form = IngresoForm(), history = emptyList(), searched = false,
                     saving = false, reviewRequired = false, pendingNumber = "",
                     notificationTurnId = saved.idTurno,
                     notificationStatus = saved.notificationStatus,
-                    whatsAppTurnId = saved.idTurno,
-                    whatsAppStatus = "PENDING",
+                    whatsAppTurnId = saved.idTurno.takeIf { whatsAppMode == WhatsAppMode.AUTOMATIC },
+                    whatsAppStatus = "PENDING".takeIf { whatsAppMode == WhatsAppMode.AUTOMATIC },
+                    manualWhatsAppReceipt = receipt,
+                    manualWhatsAppAutoOpen = receipt != null,
                     notice = Notice(
                         NoticeKind.SAVED,
                         listOf(saved.numeroTurno.orEmpty(), saved.notificationStatus?.let { "Correo: $it" })
@@ -312,16 +365,18 @@ class IngresoViewModel(
                             .joinToString(" - "),
                     ),
                 )
-                sendWhatsApp(source, saved.idTurno)
+                if (whatsAppMode == WhatsAppMode.AUTOMATIC) sendWhatsApp(source, saved.idTurno)
                 viewModelScope.launch {
-                    runCatching { source.notifyEmail(saved.idTurno) }
-                            .getOrNull()
-                            ?.let { result ->
-                                state = state.copy(
-                                    notificationTurnId = result.idTurno,
-                                    notificationStatus = result.estado,
-                                )
-                            }
+                    val status = try {
+                        source.notifyEmail(saved.idTurno)?.takeIf { it.idTurno == saved.idTurno }?.estado ?: "UNKNOWN"
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        "UNKNOWN"
+                    }
+                    if (state.notificationTurnId == saved.idTurno && repository === source) {
+                        state = state.copy(notificationStatus = status)
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -333,12 +388,67 @@ class IngresoViewModel(
             } catch (failure: Exception) {
                 val uncertain = settings.pendingTurn != null || (failure as? RegistrationException)?.uncertain == true
                 val number = settings.pendingTurn.orEmpty().ifEmpty { (failure as? RegistrationException)?.turnNumber.orEmpty() }
+                val registrationFailure = failure as? RegistrationException
+                val cause = registrationFailure?.cause ?: failure
                 state = state.copy(
                     saving = false, reviewRequired = uncertain, pendingNumber = number,
-                    notice = Notice(if (uncertain) NoticeKind.REVIEW_REQUIRED else NoticeKind.SAVE_FAILED, number),
+                    notice = Notice(
+                        if (uncertain) NoticeKind.REVIEW_REQUIRED else NoticeKind.SAVE_FAILED, number,
+                        registrationFailure?.stage,
+                        if (cause is retrofit2.HttpException) "HTTP ${cause.code()}" else cause.javaClass.simpleName,
+                    ),
                 )
             }
         }
+    }
+
+    private suspend fun prepareManualReceipt(form: IngresoForm, services: List<VehicleService>, idTurno: Int): ManualWhatsAppReceipt? {
+        val provider = pickupCodeProvider
+        val code = if (provider == null) "" else try {
+            val url = if (state.usingBackup) state.backupUrl else state.serverUrl
+            provider(url, idTurno).also { check(it.matches(Regex("[0-9A-F]{16}"))) }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            state = state.copy(pickupReceiptUnavailable = true)
+            return null
+        }
+        val company = try { companyProvider?.invoke(if (state.usingBackup) state.backupUrl else state.serverUrl) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { null }
+        return manualReceipt(form, services).copy(pickupCode = code, empresa = company)
+    }
+
+    private fun manualReceipt(form: IngresoForm, services: List<VehicleService>) = ManualWhatsAppReceipt(
+        phone = whatsAppRecipient(form.phone, state.whatsAppCountryCode) ?: form.phone.trim(),
+        plate = form.plate.trim().uppercase(Locale.ROOT),
+        customer = form.customer.trim(), brand = form.brand.trim(),
+        services = services, total = requireNotNull(parseAmount(form.value)),
+    )
+
+    fun selectWhatsAppMode(mode: WhatsAppMode) {
+        if (state.saving || state.loading) return
+        state = state.copy(whatsAppMode = mode)
+    }
+
+    fun configureWhatsAppCountryCode(value: String): Boolean {
+        if (state.saving || state.loading) return false
+        val prefix = normalizeWhatsAppCountryCode(value) ?: return false
+        settings.whatsAppCountryCode = prefix
+        state = state.copy(whatsAppCountryCode = prefix)
+        return true
+    }
+
+    fun consumeManualWhatsAppAutoOpen() {
+        state = state.copy(manualWhatsAppAutoOpen = false)
+    }
+
+    fun editManualWhatsAppPhone(phone: String) {
+        val receipt = state.manualWhatsAppReceipt ?: return
+        state = state.copy(manualWhatsAppReceipt = receipt.copy(phone = phone))
+    }
+
+    fun clearManualWhatsApp() {
+        state = state.copy(manualWhatsAppReceipt = null, manualWhatsAppAutoOpen = false)
     }
 
     private fun sendWhatsApp(source: IngresoRepository, idTurno: Int, retry: Boolean = false) {
@@ -411,8 +521,11 @@ class IngresoViewModel(
         state = state.copy(
             form = IngresoForm(), history = emptyList(), searched = false, searching = false,
             errors = emptySet(), notice = null, reviewRequired = false, pendingNumber = "",
+            pickupReceiptUnavailable = false,
             notificationTurnId = null, notificationStatus = null, editingTurnId = null,
             whatsAppTurnId = null, whatsAppStatus = null, whatsAppCanRetry = false, whatsAppSending = false,
+            manualWhatsAppReceipt = null,
+            manualWhatsAppAutoOpen = false,
         )
     }
 }

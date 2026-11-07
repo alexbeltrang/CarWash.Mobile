@@ -15,7 +15,7 @@
 - Q: Como se identifica al administrador en el movil? -> A: Inicio de sesion con el usuario existente (perfil Administrador)
 - Q: Que pasa con la comision al reasignar? -> A: Solo reemplaza; la comision va al ultimo operario
 - Q: Que puede hacer un perfil no administrador? -> A: Ingreso y consulta; sin asignar
-- Q: Se recuerda la sesion? -> A: No, se inicia sesion cada vez que se abre la app
+- Q: Se recuerda la sesion? -> A: Decision inicial reemplazada el 2026-11-06: conservar sesion al volver o recrear la app, sin guardar usuario ni contrasena.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -84,7 +84,11 @@ El administrador cambia el operario de un turno que sigue en proceso.
 - **FR-005**: La asignacion MUST ser visible de inmediato en la aplicacion de escritorio, porque ambas comparten los mismos datos.
 - **FR-006**: La app MUST rechazar la asignacion de un turno ya cerrado o de un operario ocupado, e informar el motivo.
 - **FR-007**: La app MUST pedir inicio de sesion con el usuario y perfil que ya existen en el sistema; solo el perfil Administrador MUST poder asignar o reasignar. Otros perfiles (por ejemplo recepcionista) conservan el ingreso y la consulta y no ven la accion de asignar.
-- **FR-012**: La app MUST pedir el inicio de sesion cada vez que se abre y NO MUST guardar la contrasena ni la sesion en el telefono.
+- **FR-012**: La app MUST restaurar la sesion vigente al volver o recrearse,
+  cifrando token y plazo mediante Android Keystore AES-GCM; nunca guardar usuario
+  de acceso ni contrasena. Restaurar no reinicia el plazo de nueve horas ni
+  extiende el vencimiento del servidor. Cierre explicito, vencimiento o 401
+  requieren acceso nuevamente; datos antiguos sin token no habilitan sesion.
 - **FR-008**: La app NO MUST registrar pagos, caja, nomina ni comisiones; el cobro al entregar el vehiculo queda en la aplicacion de escritorio.
 - **FR-009**: Quien recibe y quien cobra MUST poder ser personas distintas o la misma, sin que la app los vincule ni exija que coincidan.
 - **FR-010**: Los textos MUST estar en recursos y la app MUST seguir las reglas de conexion existentes (servidor, HTTP solo en red privada).

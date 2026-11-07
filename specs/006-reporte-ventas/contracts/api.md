@@ -27,7 +27,7 @@ esValido, respuesta y usuario; agregar a respuesta exitosa:
 
 | Campo nuevo | Tipo | Significado |
 |-------------|------|-------------|
-| accessToken | string | Token opaco aleatorio; solo memoria de cliente |
+| accessToken | string | Token opaco aleatorio; memoria de cliente y en Android persistencia cifrada Keystore para restaurar sesion vigente (revision 2026-11-06, spec005) |
 | tokenType | string | Bearer |
 | expiresAt | string ISO 8601 UTC | Cierre absoluto, por defecto 9 horas desde este login |
 | idleTimeoutSeconds | int | Campo heredado: 32400 por defecto; sin vencimiento por inactividad |

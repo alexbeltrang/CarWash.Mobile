@@ -1,5 +1,8 @@
 package com.carwash.mobile.ingreso
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,6 +60,10 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +79,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -85,8 +93,14 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null, onLogout: (() -> Unit)? = null) {
+fun IngresoScreen(
+    model: IngresoViewModel,
+    onOpenVehicles: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null,
+    onOpenWhatsApp: ((Intent) -> Unit)? = null,
+) {
     val state = model.state
+    val context = LocalContext.current
     val editable = !state.loading && !state.saving && !state.reviewRequired
     // Los datos del vehículo se muestran solo después de buscar la placa.
     val showDetails = state.searched || state.reviewRequired
@@ -118,7 +132,9 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    if (com.carwash.mobile.empresa.LocalEmpresa.current != null) {
+                        com.carwash.mobile.empresa.EmpresaHeader(stringResource(R.string.ingreso_title))
+                    } else Column {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
                         Text(stringResource(R.string.ingreso_title), style = MaterialTheme.typography.bodyMedium)
                     }
@@ -127,7 +143,9 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
                     if (onOpenVehicles != null) {
                         ToolButton(Icons.AutoMirrored.Filled.List, R.string.vehicles_open, editable) { onOpenVehicles() }
                     }
+                    val refreshCompany = com.carwash.mobile.empresa.LocalEmpresaRefresh.current
                     ToolButton(Icons.Default.Refresh, R.string.refresh, !state.loading && !state.saving) {
+                        refreshCompany()
                         model.connect(state.serverUrl)
                     }
                     ToolButton(Icons.Default.Settings, R.string.connection, editable) { showConnection = true }
@@ -176,6 +194,12 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
             ConnectionStatus(state)
             if (state.loading || state.searching || state.saving) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.notice?.let { NoticeBanner(it) }
+            if (state.pickupReceiptUnavailable) Text(stringResource(R.string.pickup_receipt_unavailable), color = MaterialTheme.colorScheme.error)
+            if (state.entryPrintStatus in listOf("FAILED", "UNKNOWN")) {
+                Text(stringResource(R.string.entry_print_unconfirmed),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("entryPrintStatus"))
+            }
             state.notificationStatus?.let { status ->
                 LaunchedEffect(status) {
                     delay(10_000)
@@ -190,6 +214,13 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
             state.whatsAppStatus?.let { status ->
                 WhatsAppStatus(status, state.whatsAppCanRetry, state.whatsAppSending,
                     model::retryWhatsApp, model::clearWhatsAppStatus)
+            }
+            state.manualWhatsAppReceipt?.let { receipt ->
+                ManualWhatsAppStatus(
+                    receipt, model::editManualWhatsAppPhone, model::clearManualWhatsApp,
+                    state.manualWhatsAppAutoOpen, model::consumeManualWhatsAppAutoOpen,
+                    onOpenWhatsApp ?: { intent -> context.startActivity(intent) },
+                )
             }
             SectionTitle(R.string.vehicle_section)
             FilledTonalButton(
@@ -218,6 +249,20 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
                 ) { Icon(Icons.Default.Search, stringResource(R.string.search_plate)) }
             }
             if (showDetails) {
+                SectionTitle(R.string.whatsapp_confirmation)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    WhatsAppMode.entries.forEachIndexed { index, mode ->
+                        SegmentedButton(
+                            selected = state.whatsAppMode == mode,
+                            onClick = { model.selectWhatsAppMode(mode) },
+                            enabled = editable,
+                            shape = SegmentedButtonDefaults.itemShape(index, WhatsAppMode.entries.size),
+                            modifier = Modifier.testTag("whatsappMode-$mode"),
+                        ) {
+                            Text(stringResource(if (mode == WhatsAppMode.MANUAL) R.string.whatsapp_manual else R.string.whatsapp_automatic))
+                        }
+                    }
+                }
                 VehicleTypeMenu(state, editable && state.connected, model::selectType)
                 IngresoField(
                     state.form.customer, { value -> model.edit { it.copy(customer = value.uppercase(Locale.ROOT)) } },
@@ -296,8 +341,9 @@ fun IngresoScreen(model: IngresoViewModel, onOpenVehicles: (() -> Unit)? = null,
         state,
         onDismiss = { showConnection = false },
         onTest = { url, backup -> keyboard?.hide(); model.testConnection(url, backup) },
-    ) { url, backup ->
+    ) { url, backup, countryCode ->
         keyboard?.hide()
+        if (!model.configureWhatsAppCountryCode(countryCode)) return@ConnectionDialog
         model.connect(url, backup)
         showConnection = false
     }
@@ -408,7 +454,22 @@ private fun NoticeBanner(notice: Notice) {
     val foreground = if (positive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer
     Row(Modifier.fillMaxWidth().background(background).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (notice.kind == NoticeKind.SAVED) Icon(Icons.Default.CheckCircle, null, tint = foreground)
-        Text(stringResource(message, notice.detail), color = foreground, style = MaterialTheme.typography.bodyMedium)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(message, notice.detail), color = foreground, style = MaterialTheme.typography.bodyMedium)
+            notice.failureCode?.let { code ->
+                val stageLabel = when (notice.registrationStage) {
+                    RegistrationStage.DAILY -> R.string.registration_stage_daily
+                    RegistrationStage.TURN -> R.string.registration_stage_turn
+                    RegistrationStage.SERVICES -> R.string.registration_stage_services
+                    null -> R.string.registration_stage_confirmation
+                }
+                Text(
+                    stringResource(R.string.registration_failure_detail, stringResource(stageLabel), code),
+                    Modifier.testTag("registrationFailure"), color = foreground,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
     }
 }
 
@@ -476,17 +537,19 @@ private fun ConnectionDialog(
     state: IngresoState,
     onDismiss: () -> Unit,
     onTest: (String, String) -> Unit,
-    onConnect: (String, String) -> Unit,
+    onConnect: (String, String, String) -> Unit,
 ) {
     var url by rememberSaveable { mutableStateOf(state.serverUrl) }
     var backup by rememberSaveable { mutableStateOf(state.backupUrl) }
+    var countryCode by rememberSaveable { mutableStateOf(state.whatsAppCountryCode) }
     val valid = normalizeServer(url) != null
     val backupValid = backup.isBlank() || normalizeServer(backup) != null
+    val countryCodeValid = normalizeWhatsAppCountryCode(countryCode) != null
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.connection)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = url, onValueChange = { url = it }, modifier = Modifier.fillMaxWidth().testTag("serverUrl"),
                     label = { Text(stringResource(R.string.server_label)) },
@@ -505,6 +568,14 @@ private fun ConnectionDialog(
                     supportingText = if (!backupValid) ({ Text(stringResource(R.string.invalid_server)) }) else null,
                 )
                 if (backup.isNotBlank()) ProbeLine(normalizeServer(backup), state)
+                OutlinedTextField(
+                    value = countryCode, onValueChange = { countryCode = it },
+                    modifier = Modifier.fillMaxWidth().testTag("whatsappCountryCode"),
+                    label = { Text(stringResource(R.string.whatsapp_country_code)) },
+                    singleLine = true, isError = !countryCodeValid,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    supportingText = if (!countryCodeValid) ({ Text(stringResource(R.string.whatsapp_invalid_country_code)) }) else null,
+                )
                 TextButton(
                     onClick = { onTest(url, backup) },
                     enabled = valid && backupValid && !state.probing,
@@ -515,7 +586,7 @@ private fun ConnectionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConnect(url, backup) }, enabled = valid && backupValid && !state.loading) {
+            TextButton(onClick = { onConnect(url, backup, countryCode) }, enabled = valid && backupValid && countryCodeValid && !state.loading) {
                 Text(stringResource(R.string.connect))
             }
         },
@@ -561,6 +632,86 @@ private fun HistorySection(entries: List<HistoryEntry>) {
                     }
                 }
             }
+        }
+    }
+}
+
+internal fun openManualWhatsApp(phone: String, message: String, startActivity: (Intent) -> Unit): Boolean {
+    val normalized = normalizeWhatsAppPhone(phone) ?: return false
+    val uri = Uri.Builder().scheme("whatsapp").authority("send")
+        .appendQueryParameter("phone", normalized.removePrefix("+"))
+        .appendQueryParameter("text", message).build()
+    for (appPackage in listOf("com.whatsapp", "com.whatsapp.w4b")) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage(appPackage))
+            return true
+        } catch (_: ActivityNotFoundException) {
+        } catch (_: SecurityException) {
+        }
+    }
+    return false
+}
+
+@Composable
+private fun ManualWhatsAppStatus(
+    receipt: ManualWhatsAppReceipt,
+    onPhoneChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    autoOpen: Boolean,
+    onAutoOpenConsumed: () -> Unit,
+    startActivity: (Intent) -> Unit,
+) {
+    var failed by rememberSaveable { mutableStateOf(false) }
+    var needsRetry by rememberSaveable { mutableStateOf(false) }
+    val phoneValid = normalizeWhatsAppPhone(receipt.phone) != null
+    val context = LocalContext.current
+    val services = receipt.services.joinToString("\n") { service ->
+        context.getString(R.string.whatsapp_manual_service, service.nombre, money(service.precio ?: BigDecimal.ZERO))
+    }
+    val baseMessage = stringResource(
+        R.string.whatsapp_manual_message, receipt.customer, receipt.plate,
+        receipt.brand, services, money(receipt.total),
+    )
+    val header = com.carwash.mobile.empresa.empresaReceiptHeader(receipt.empresa,
+        stringResource(R.string.company_nit), stringResource(R.string.company_phone))
+    val identifiedMessage = if (header.isBlank()) baseMessage else header + "\n\n" + baseMessage
+    val message = if (receipt.pickupCode.isBlank()) identifiedMessage else
+        identifiedMessage + "\n\n" + stringResource(R.string.pickup_whatsapp_code, receipt.pickupCode)
+    LaunchedEffect(autoOpen) {
+        if (autoOpen) {
+            onAutoOpenConsumed()
+            failed = phoneValid && !openManualWhatsApp(receipt.phone, message, startActivity)
+            needsRetry = failed || !phoneValid
+            if (phoneValid && !failed) onDismiss()
+        }
+    }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.whatsapp_manual_title, receipt.plate),
+                Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            ToolButton(Icons.Default.Close, R.string.whatsapp_manual_dismiss, true, onDismiss)
+        }
+        OutlinedTextField(
+            value = receipt.phone, onValueChange = { needsRetry = true; failed = false; onPhoneChange(it) },
+            label = { Text(stringResource(R.string.whatsapp_recipient)) },
+            isError = !phoneValid,
+            supportingText = if (!phoneValid) ({ Text(stringResource(R.string.whatsapp_invalid_phone)) }) else null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("whatsappRecipient"),
+        )
+        Text(message, Modifier.testTag("whatsappPreview"), style = MaterialTheme.typography.bodyMedium)
+        if (failed) Text(stringResource(R.string.whatsapp_open_failed), color = MaterialTheme.colorScheme.error)
+        if (needsRetry) FilledTonalButton(
+            onClick = {
+                failed = !openManualWhatsApp(receipt.phone, message, startActivity)
+                needsRetry = failed
+                if (!failed) onDismiss()
+            },
+            enabled = phoneValid, modifier = Modifier.fillMaxWidth().testTag("openWhatsApp"),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text(stringResource(R.string.whatsapp_manual_retry))
         }
     }
 }

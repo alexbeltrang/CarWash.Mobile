@@ -28,3 +28,13 @@ Efecto: guarda `idOperario`, `FechaHoraAsignacionOperario = ahora`, `PorcentajeC
 
 ## Errores en la app
 Fallos de red o 5xx: mensaje recuperable con reintento. 409: informa y refresca. 403: informa que se requiere perfil Administrador.
+
+## Restauracion De Sesion (2026-11-06)
+
+La sesion emitida por Auth se conserva cifrada AES-GCM con clave Android
+Keystore no exportable, sin usuario de acceso ni contrasena. Se recupera token,
+origen, perfil y vencimiento al recrearse. Plazo local de nueve horas desde
+el acceso original, limitado por expiresAt del servidor; restaurar no renueva.
+401/revocacion exige acceso; logout borra sesion local antes de confirmar remoto.
+Preferencias anteriores sin token o contenido corrupto no habilitan sesion.
+No cambia el contrato HTTP de login/logout ni se eliminan limites del servidor.

@@ -4,7 +4,85 @@
 
 **Created**: 2026-10-28
 
-**Status**: Correo conservado y WhatsApp adicional implementado/verificado con dobles el 2026-11-05. Alta Meta, actualizacion de API instalada y prueba real autorizada pendientes. Sin envios reales ni despliegue.
+**Status**: Correo conservado, modo Manual con prefijo configurable y apertura automatica implementados/verificados con dobles en celular fisico el 2026-11-06. Apertura nativa real verificada previamente; nuevo ingreso completo contra API real pendiente. Automatico Meta: alta, configuracion API y prueba autorizada pendientes. Sin mensajes enviados por el agente.
+
+**Despliegue correo HTML**: Autorizado y ejecutado el 2026-11-06. Binario nuevo
+publicado, respaldada la version anterior y reiniciada la API con perfil wifi.
+HTTP 200 local y en 192.168.1.5:5197; configuracion conservada. Cuatro pruebas
+de correo correctas; apariencia en buzon real pendiente, sin envios del agente.
+
+## Revision aprobada 2026-11-06: WhatsApp manual y automatico
+
+- Correo de recepcion con HTML compatible con clientes de correo: encabezado,
+  iconos, placa/marca, tabla de servicios, total destacado y agradecimiento;
+  alternativa de texto plano UTF-8. Conservar asunto con placa/marca, importes,
+  total confirmado y reglas de envio/idempotencia. Escapar valores del cliente
+  y servicios en HTML; sin recursos remotos, rastreo, nuevos datos comerciales
+  ni cambios a Meta o al APK. Despliegue de API requiere autorizacion separada.
+- Formato manual solicitado: encabezado de recepcion destacado con sintaxis
+	de negrita WhatsApp, iconos Unicode para vehiculo, placa, marca, servicios y
+	total, separacion por lineas y cierre de agradecimiento. Conservar cliente,
+	placa, marca, servicios con importes y total confirmado, sin inventar datos
+	comerciales, descuentos o tiempos. Plantilla y formato de servicio en recursos
+	Android; verificar emojis, acentos y saltos de linea en el texto del Intent.
+- Prefijo de pais WhatsApp configurable y persistido localmente; valor inicial
+	+57 aprobado para Colombia. Aplicarlo a destinatarios locales sin modificar
+	el turno; conservar numeros que ya tengan + y validar E.164 sin duplicar prefijo.
+- En modo Manual, abrir WhatsApp una sola vez automaticamente tras confirmar
+	registro completo o actualizacion. No requerir boton de apertura en el flujo
+	normal, ni repetir por recomposicion/regreso a CarWash. Mantener correccion y
+	reintento si el numero es invalido o no se puede abrir la app. Sin pulsar Enviar,
+	llamadas Meta ni apertura para registros inciertos o modo Automatico.
+- Al abrir WhatsApp correctamente, descartar inmediatamente la copia del mensaje
+	y su destinatario; el formulario ya vaciado al confirmar guardado/actualizacion
+	queda listo para otra placa. Aplicar tambien tras reintento exitoso. No conservar
+	datos del WhatsApp anterior al regresar ni al buscar otro vehiculo. Si la apertura
+	falla o el numero es invalido, conservar la copia para corregir y reintentar.
+- Verificacion operativa 2026-11-06: HTTP 500 al asociar servicios causado por
+	TurnoServicios.idTunoServicios sin clave primaria autogenerada en SQLite.
+	Reparacion existente aplicada con autorizacion, respaldo y comparacion de
+	asociaciones, turnos y pagos. Sin repetir registros ni envios de servicios.
+	Borrador real de WhatsApp verificado en celular mediante apertura nativa directa:
+	texto completo, placa, servicios y total coinciden; no se pulso Enviar.
+	El usuario confirmo +57 para ese destinatario manual; no es un prefijo global
+	ni un cambio al celular almacenado. Esta prueba no reproduce un guardado nuevo
+	desde CarWash ni elimina automaticamente un aviso pendiente ya mostrado.
+- Si un registro nuevo no queda confirmado, el aviso MUST distinguir la etapa
+	(consecutivo, vehiculo o servicios) y el codigo HTTP o tipo de excepcion.
+	No mostrar ni persistir cuerpos HTTP, datos del cliente o mensajes del servidor.
+	Este diagnostico no desbloquea registros inciertos ni autoriza notificaciones.
+- Abrir el mensaje manual mediante enlace nativo whatsapp://send con phone y text
+	codificados, sin depender de enlaces web wa.me habilitados en Android. Conservar
+	destinatario, saltos de linea y caracteres especiales; no pulsar Enviar ni marcar
+	entrega por abrir la aplicacion externa.
+- Un error, timeout o respuesta ausente de correo MUST informar un estado propio,
+	conservar el ingreso confirmado y dejar disponible el WhatsApp manual. No cambiar
+	el ingreso a revision requerida ni borrar su copia por fallos de mensajeria.
+- Si una escritura del registro responde con error o queda sin confirmar, consultar
+	el turno en proceso por placa sin repetir escrituras. Solo reconocer registro
+	completo si numero, datos del formulario y todos los servicios coinciden. En caso
+	contrario mantener revision requerida, sin confirmar un ingreso parcial al cliente.
+- El aviso de revision requerida MUST identificar registro de vehiculo/servicios
+	sin confirmar, no confundirlo con envio de correo o WhatsApp.
+- Tras actualizar correctamente un turno en proceso, el modo manual MUST ofrecer
+	WhatsApp con los datos y servicios confirmados. No crear otro turno, consumir
+	consecutivo ni solicitar correo/WhatsApp automatico para esa actualizacion.
+- Ofrecer modos manual y automatico, con manual seleccionado inicialmente mientras
+	el negocio completa el registro de Meta. Conservar correo y la integracion automatica.
+- En manual, preparar exclusivamente tras confirmar turno y todos sus servicios una
+	copia en memoria de placa, cliente, marca, servicios autorizados y total confirmado.
+	Abrir WhatsApp con destinatario y texto; el usuario confirma el envio en WhatsApp.
+- No llamar al envio automatico en modo manual, ni afirmar aceptacion o entrega por
+	abrir la aplicacion externa. No registrar nuevamente el ingreso al abrir el mensaje.
+- Permitir corregir el destinatario con codigo internacional usando el prefijo configurado, sin
+	modificar el ingreso guardado. Un telefono invalido no impide guardar el vehiculo.
+- Si WhatsApp no esta instalado, informar el error conservando el ingreso y el mensaje.
+	No sustituirlo por otra app ni abrir un enlace web con datos personales.
+- Limpiar la copia al descartarla, limpiar el formulario, cambiar de servidor o iniciar
+	otro guardado. No persistir ni registrar destinatario o cuerpo en logs.
+- Pruebas: confirmar contenido/total editado, modo manual sin llamadas automaticas,
+	guardado parcial sin mensaje, numero internacional, ausencia de WhatsApp, y apertura
+	sin duplicar registro ni afirmar entrega. No enviar mensajes reales en pruebas.
 
 ## Revision aprobada 2026-11-05: agregar WhatsApp
 

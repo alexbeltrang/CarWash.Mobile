@@ -84,6 +84,34 @@ data class WhatsAppNotificationResult(
     val estado: String,
     val accion: String = "NONE",
 )
+enum class WhatsAppMode { MANUAL, AUTOMATIC }
+
+data class ManualWhatsAppReceipt(
+    val phone: String,
+    val plate: String,
+    val customer: String,
+    val brand: String,
+    val services: List<VehicleService>,
+    val total: BigDecimal,
+    val pickupCode: String = "",
+    val empresa: com.carwash.mobile.empresa.EmpresaDto? = null,
+)
+
+fun normalizeWhatsAppPhone(value: String): String? = value.trim()
+    .replace(Regex("[\\s().-]"), "")
+    .takeIf { it.matches(Regex("\\+[1-9][0-9]{7,14}")) }
+
+fun normalizeWhatsAppCountryCode(value: String): String? = value.trim()
+    .takeIf { it.matches(Regex("\\+[1-9][0-9]{0,2}")) }
+
+fun whatsAppRecipient(value: String, countryCode: String): String? {
+    val phone = value.trim().replace(Regex("[\\s().-]"), "")
+    if (phone.startsWith("+")) return normalizeWhatsAppPhone(phone)
+    if (!phone.matches(Regex("[0-9]+"))) return null
+    val prefix = normalizeWhatsAppCountryCode(countryCode) ?: return null
+    return normalizeWhatsAppPhone(prefix + phone)
+}
+
 data class TurnServiceRequest(val idServicios: Int, val idTurno: Int, val isDeleted: Boolean = false)
 
 data class TurnRequest(

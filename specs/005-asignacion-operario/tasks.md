@@ -1,3 +1,15 @@
+# Ajuste De Sesion 2026-11-06
+
+- [X] SES-001 Restaurar sesion cifrada y plazo original en SessionStore/LoginViewModel.
+- [X] SES-002 Verificar restauracion, expiracion, logout y cifrado en JVM/celular fisico; compilar APK y lint.
+
+Evidencia 2026-11-06: JVM/assembleDebug/assembleDebugAndroidTest/lintDebug
+correctos. Xiaomi fisico: dos pruebas nuevas de Android Keystore/restauracion
+y rechazo de contenido alterado correctas; prueba antigua de contrasena fallo
+al arrancar Compose y paso aislada sin cambios. APK respaldado e instalado -r -t,
+MainActivity Status:ok. Sin credenciales reales ni escrituras API en pruebas.
+Acceso una vez tras actualizar: version antigua no tenia token recuperable.
+
 ---
 description: "Tareas de implementación de asignación de operario desde el móvil"
 ---
