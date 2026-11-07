@@ -102,6 +102,11 @@ nombre/domicilio largos y datos antiguos sin factura.
   No (predeterminado) no abre formulario, no consume numeracion y cierra registro.
   Si abre comprador: nombre/tipo/numero requeridos, direccion opcional. Emitir
   para el mismo turno no vuelve a preguntar. Consulta manual conserva confirmacion.
+- **FR-013**: Entregar scripts de creacion de estructura vacia SQLite y SQL Server
+  incluyendo tablas del escritorio, notificaciones, empresa, impresion y factura.
+  Sin copiar registros, usuarios, secretos ni configuracion fiscal. SQLite se
+  verifica en base temporal; SQL Server no implica migrar ni cambiar el proveedor
+  SQLite de la API. Documentar requisitos y limites de verificacion del servidor.
 
 ### Key Entities
 

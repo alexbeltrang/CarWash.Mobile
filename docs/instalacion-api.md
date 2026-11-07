@@ -111,6 +111,10 @@ Si `winget` no esta disponible, instalar el ".NET 9 Hosting Bundle" desde dotnet
 
 ## 3. Base de datos SQLite
 
+Para crear una base nueva desde SQL, consultar los
+[scripts de SQLite y SQL Server](database/README.md). No contienen datos ni usuarios.
+El script SQL Server es solo esquema: la API descrita aqui sigue usando SQLite.
+
 `ConnectionStrings:DefaultConnection` usa `C:\ProgramData\SplashCar\CarWash.db`.
 Crear la carpeta y dar permiso al pool (el pool se crea en el paso 4; ejecutar este
 `icacls` despues de ese paso):

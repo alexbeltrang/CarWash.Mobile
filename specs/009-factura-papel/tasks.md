@@ -58,3 +58,9 @@ se escribe editor; se ejecuta secuencialmente en esta sesion para mantener valid
 - [X] T015 [US3] Probar respuestas Si/No/cancelacion, comprador requerido sin direccion y emision/impresion explicita aisladas.
 - [X] T016 Ejecutar gates API/escritorio y documentar evidencia: MSBuild aislado y 20 pruebas enfocadas aprobadas.
 - [X] T017 Actualizar solo escritorio con respaldo y aprobacion nueva; no reiniciar API ni modificar celular. PID61156 responde; configuracion conservada.
+
+## Phase 8: Scripts De Creacion De Base
+
+- [X] T018 Obtener esquema actual en solo lectura y entregar script SQLite sin datos en docs/database/carwash-sqlite.sql.
+- [X] T019 Entregar script equivalente SQL Server con tipos/identidades/indices compatibles en docs/database/carwash-sqlserver.sql.
+- [X] T020 Verificar SQLite temporal y SQL Server temporal (30 tablas/27 indices), rechazo de base existente y documentar uso/limitaciones sin tocar produccion en docs/database/README.md.

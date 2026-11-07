@@ -4,6 +4,11 @@ Todos los endpoints Bearer ApiSession existente, Cache-Control:no-store.
 GET /api/Facturas/configuracion: 200 DTO o 204 sin configuracion.
 PUT /api/Facturas/configuracion: administrador, DTO completo/revision; 200.
 Comprador exige nombre/tipo/numero documento; direccion/contacto opcionales.
+
+Provisionamiento: scripts SQL separados para SQLite y SQL Server, solo esquema,
+sin INSERT de usuarios/empresa/autorizacion/facturas. Incluyen restricciones e
+indices del esquema existente. No alteran la base operativa ni habilitan SQL
+Server en la API, cuyo inicio/consultas siguen siendo especificos de SQLite.
 GET /api/Facturas/preparacion?idTurno=N o placa=ABC123: 200 turno finalizado,
 datos sugeridos comprador, total/concepto y revisiones. Requiere un selector.
 GET /api/Facturas: hasta100 documentos mas recientes; placa opcional filtra antes
