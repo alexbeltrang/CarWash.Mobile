@@ -93,7 +93,8 @@ explicitamente; actualizar binding redirects desde la distribucion compilada.
 Cliente nuevo usa NameLDB=%LOCALAPPDATA%/CarWash/CarWash.db expandido al ejecutar;
 configuraciones anteriores sin variables conservan su resolucion previa.
 Preparar directorio protegido de logs aun si la base esta en otra ruta.
-Desinstalar elimina tarea propia/regla LAN, no las bases ni configuraciones.
+Desde1.0.2 desinstalar elimina tambien bases y configuraciones conforme FR019;
+la conservacion anterior se aplica solo al actualizar, no al desinstalar.
 No incluir usuarios de trabajo, bases reales, SMTP ni secretos. WhatsApp e
 impresion del paquete deshabilitados; datos fiscales/empresa/servicios se
 configuran con valores reales despues. No modificar endpoints ni reglas fiscales.
@@ -101,3 +102,71 @@ configuran con valores reales despues. No modificar endpoints ni reglas fiscales
 Generar/probar el paquete no autoriza instalarlo sobre el equipo operativo.
 Instalacion limpia/UAC/reinicio/upgrade/desinstalacion y firma del ejecutable
 siguen siendo validaciones externas; no confundir API temporal con VM limpia.
+
+Revision 1.0.1: configuracion de escritorio XML y configuracion API JSON usan
+variables independientes. No convertir JSON a XmlDocument al seleccionar ambos
+componentes. Regresion conjunta con base existente/nueva, ajustes conservados
+y tareas/firewall simulados; ejecutar tambien en Windows PowerShell5.1 usado
+por el asistente. Sin cambio de endpoints ni datos operativos.
+
+Revision 1.0.2 (sustituye conservacion al desinstalar): InitializeUninstall
+exige confirmacion explicita, No predeterminado, avisando borrado permanente de
+base API, configuraciones, logs y datos de todos los usuarios. Respaldo fuera
+de carpetas CarWash; tambien se eliminan respaldos guardados dentro de ellas.
+CurUninstallStepChanged ejecuta limpieza antes de retirar archivos y aborta con
+error visible si falla. No desinstalar runtimes Microsoft compartidos.
+
+installation.json sin secretos registra ruta instalada, componentes, base
+validada y directorios creados, incluso para instalacion parcial. En versiones
+anteriores sin registro, recuperar base del appsettings instalado con parser de
+cadena de conexion, no regex. Eliminar DB/.db-wal/.db-shm/.db-journal; nunca
+borrar recursivamente el directorio personalizado que contiene la base.
+Eliminar arboles propios Api/Desktop/Templates, ProgramData/SplashCar para API
+y AppData/Local/CarWash y AppData/Roaming/CarWash de perfiles para escritorio.
+Directorios personalizados creados se retiran solo si vacios. Inno elimina
+accesos, registro de desinstalacion y carpeta instalada al terminar.
+
+Antes de borrar, rechazar enlaces/uniones y otras tareas/API activas; detener
+solo procesos por ruta exacta y lanzador propio, tolerar proceso ya terminado,
+retirar tarea/regla LAN propias. Escritorio solo no toca API externa. Probar
+archivos reales exclusivamente en temporales con perfiles y comandos de Windows
+simulados. No implica borrar trazas de auditoria/historial que mantiene Windows.
+
+Revision 1.0.3: reutilizar CarWashSeeder del instalador API original tambien
+para base existente compatible sin usuarios activos, no solo para base nueva.
+Mostrar usuario/clave al seleccionar API; ambos elegidos por el usuario, sin
+trasladar la clave fija del instalador anterior. Invocar sembrador despues de
+configurar conexion y, si corresponde, copiar esquema. Usuarios activos
+existentes implican no crear/restablecer ninguno. Credenciales temporales se
+eliminan tanto al crear como al omitir usuario. No cambiar cifrado/login/API.
+
+Mantener el hosting original Kestrel/run-api.ps1 mediante tarea CarWashApi
+SYSTEM al iniciar, puerto5197, no IIS ni servicio Windows. Sitio/application
+pool IIS no se crean. El instalador registra la tarea; un proceso API iniciado
+manualmente no demuestra por si solo que esa tarea exista.
+
+Revision 1.1.0 (FR021): seleccionar BackupDirectory local dedicado al instalar
+API; predeterminado ProgramData/CarWashBackups. Rechazar raiz, UNC, enlaces,
+destinos dentro de carpetas eliminables, antecesores de instalacion/SplashCar
+y carpetas que contengan la base. Carpeta no vacia requiere backup-owner.json
+de la misma instalacion; validar antes de detener/configurar componentes.
+ACL para SYSTEM/Administradores; no incluir destino en directorios eliminables.
+
+backup-settings.json instalado contiene InstallDir, DatabasePath,
+BackupDirectory y ConfigFiles, sin copiar credenciales a argumentos. Tarea
+CarWashBackup SYSTEM ejecuta Api/CarWashSeeder.exe --backup con ese archivo,
+cada hora, StartWhenAvailable, IgnoreNew y limite de una hora. Bloqueo de
+archivo adicional impide solapamiento. Verificar propiedad exacta antes de
+reemplazar/detener/retirar la tarea; desinstalar conserva copias externas.
+
+Motor SQLite BackupDatabase ReadOnly sobre fuente existente, destino temporal,
+integrity_check y SHA256 antes de publicar por renombrado. Carpeta publicada
+CarWash-<fecha UTC>-<identificador> contiene CarWash.db, configuraciones API,
+correo e impresion existentes y backup.json con InstallDir, CreatedUtc y Files
+(nombre a SHA256). No incluir binarios. Retencion por union de 24 mas recientes,
+7 dias distintos y 4 semanas ISO distintas, solo marcadores de esta instalacion.
+No borrar carpetas ajenas. Fallos devuelven 1 y exito 0; backup-status.json
+incluye Success, AttemptUtc y LastSuccessUtc. Estado JSON truncado no impide
+respaldos futuros. Sin alertas remotas, nube ni cifrado adicional automaticos.
+Prueba/restauracion aislada con WAL activo; nunca sustituir base operativa
+para probar. Registro efectivo SYSTEM/ACL y reinicio requieren VM Windows.

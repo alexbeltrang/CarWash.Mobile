@@ -199,6 +199,32 @@ API PID29316 sin reiniciar y DLL sin cambiar; Swagger local HTTP200.
 
 ## Instalador Seleccionable 2026-11-09
 
+Actualizacion 1.1.0: el asistente API agrega carpeta de respaldo local dedicada
+(predeterminada ProgramData/CarWashBackups). CarWashBackup ejecuta cada hora
+SQLite BackupDatabase con integridad y SHA256, configuraciones existentes y
+retencion por union24/7/4. Conserva las copias externas al desinstalar; retira
+la tarea propia. Destinos eliminables, enlaces y carpetas ajenas se rechazan
+antes de configurar. Estado y ultimo resultado de tarea son diagnostico local,
+no alertas remotas; no incluye nube ni cifrado adicional. Copiar tambien fuera
+del equipo y proteger secretos de configuracion. Procedimiento de restauracion
+y limites en ../CarWash/Installer/README.md.
+
+Validacion aislada: ScheduledBackupRestoresLiveWalDatabaseAndPreservesForeignFiles
+aprobada (una ejecutada, cero omitidas), cubriendo WAL activo, transaccion no
+confirmada, integridad, hashes, retencion, archivo ajeno, lock concurrente,
+fuente inexistente, destino inseguro y recuperacion de estado JSON truncado.
+TRX `%TEMP%/CarWash.Backup.TestResults/backup-status.trx`. Windows PowerShell5.1
+Installer/test.ps1 -VerifyPayload aprobado con tareas/firewall simulados,
+incluyendo destinos invalidos, propiedad y preservacion al desinstalar.
+Repetida contra el motor Release autocontenido incluido: una aprobada, cero
+fallos/omitidas; TRX `%TEMP%/CarWash.Backup.TestResults/backup-packaged.trx`.
+Inno compilo ../CarWash/Installer/output/CarWash-Setup-x64-1.1.0.exe,
+142299372 bytes, SHA256
+`C3EEC8B78E20B6F56F8ADC3DD6D03351E26B3D4DF0B360CD5C31ECF43C35D8AB`.
+No se ha instalado la nueva tarea en el equipo operativo ni reiniciado su API.
+T038 sigue pendiente para UAC, registro/ejecucion SYSTEM, ACL, reinicio y ciclo
+completo en VM limpia; las evidencias siguientes corresponden a versiones previas.
+
 - Proyecto ../CarWash/Installer/CarWash.Installer.csproj integrado en CarWash.slnx.
 	Release genera el paquete; solucion Debug compilo aislada sin regenerarlo.
 	MSBuild18.8/Framework4.8.1, API/seeder Release win-x64 autocontenidos.
@@ -232,3 +258,88 @@ API PID29316 sin reiniciar y DLL sin cambiar; Swagger local HTTP200.
 	desinstalacion/conservacion, tarea y firewall. Setup no firmado por la empresa;
 	SmartScreen puede advertir editor desconocido. Drivers especificos de impresora
 	no se incluyen; instalar los del fabricante cuando corresponda.
+
+## Correccion Instalador Conjunto 1.0.1
+
+- Usuario reporto error final al seleccionar escritorio y API. configure.ps1
+	declaraba config como XmlDocument para el cliente y reutilizaba esa variable
+	al asignar JSON de la API. PowerShell conserva la restriccion de tipo y falla
+	antes de completar configuracion de la API. Variables desktopConfig/apiConfig
+	separadas; no se modifican datos, contratos HTTP ni credenciales.
+- Installer/test.ps1 -VerifyPayload aprobado en PowerShell7 y Windows
+	PowerShell5.1: incluye dos recorridos nuevos de configuracion conjunta,
+	uno con base existente y otro con base nueva. Desktop/XML y API/JSON conservan
+	ajustes, base existente conserva SHA256 y seleccion temporal se elimina.
+	Tarea programada y firewall simulados; nunca registrarlos como parte del test.
+	Continuan aprobadas las diez selecciones y API temporal/login sintetico.
+- Inno Setup compilo la version1.0.1 en archivo separado para no sobrescribir
+	el instalador anterior abierto por el usuario:
+	../CarWash/Installer/output/CarWash-Setup-x64-1.0.1.exe,
+	142310692 bytes, SHA256
+	`571233E936E28DCA8804645995EFC8B7031537D5AB970E2241F109E1EBEF15E2`.
+	build.ps1 mantiene su nombre habitual CarWash-Setup-x64.exe para futuras
+	compilaciones, ahora con version1.0.1. Cerrar asistentes antiguos antes de
+	reinstalar y conservar la base existente; no marcar base nueva si ya existe.
+- No se ejecuto el instalador nuevo, no se reparo la instalacion real ni se
+	inicio su API. UAC/tarea SYSTEM/firewall/reinicio reales siguen pendientes
+	de verificacion externa T038. No afirmar instalacion completa certificada.
+
+## Desinstalacion Completa 1.0.2
+
+- Ultima peticion cambia expresamente la politica: actualizar conserva datos,
+	pero desinstalar borra completamente los archivos y datos propios de CarWash.
+	El asistente advierte borrado permanente de todos los perfiles, con No
+	predeterminado. Hacer respaldo FUERA de las carpetas CarWash.
+- Quitados uninsneveruninstall de configuraciones; script de limpieza instalado
+	tambien para escritorio solo. Evento de desinstalacion comprueba salida del
+	script y no declara limpieza exitosa si falla. Inno completa retiro de
+	accesos, registro de desinstalacion, su ejecutable y carpeta final vacia.
+- Limpieza propia: DB y auxiliares en ruta elegida, logs/configuracion en
+	ProgramData/SplashCar para API, AppData/Local y Roaming/CarWash de perfiles
+	para escritorio, Api/Desktop/Templates y metadatos. Registrar directorios
+	creados permite retirar antecesores vacios; conservar carpeta compartida con
+	otros archivos. No eliminar runtimes Microsoft ni historial de Windows.
+- Prueba Installer/test.ps1 -VerifyPayload aprobada en Windows PowerShell5.1:
+	archivos temporales completos/escritorio solo; cuatro escenarios de limpieza
+	(completa, escritorio, tarea ajena, junction); hashes/datos ajenos conservados,
+	auxiliares DB eliminados, proceso ya finalizado tolerado, directorios vacios
+	retirados, enlaces/tareas ajenos rechazados antes de efectos laterales.
+	Todos los comandos de tarea/proceso/firewall y perfiles fueron simulados.
+	Diez selecciones, configuracion conjunta y API temporal/login siguen aprobados.
+- Inno Setup compilo la entrega
+	../CarWash/Installer/output/CarWash-Setup-x64-1.0.2.exe,
+	142308566 bytes, SHA256
+	`4918BF5D9BA51C94305E412AC8F2DE693403778CAA35D0FD7CEE1F3C97F644F0`.
+	No se ejecuto desinstalacion ni borrado real, ni se alteraron datos operativos.
+- Instalaciones antiguas necesitan actualizar en la misma ruta a1.0.2 antes
+	de desinstalar para usar el nuevo script/politica. Instalacion limpia,
+	elevacion real, eventos Inno y limpieza en reinicio siguen pendientes T038;
+	no se certifica el ciclo real completo solo por pruebas simuladas.
+
+## Usuario Inicial Y Hosting 1.0.3
+
+- Comparado con installer/CarWashApi.iss, install-service.ps1 y seeder/Program.cs
+	existentes: el original tambien utiliza tarea SYSTEM/Kestrel, no IIS. El
+	proyecto unificado ya publicaba ese mismo seeder; faltaba invocarlo al elegir
+	una base existente sin usuarios. Ahora se pide usuario/clave siempre con API
+	y se invoca para ambos tipos de base. No se traslada la clave predeterminada
+	del instalador viejo ni se distribuyen credenciales fijas.
+- Seeder omite creacion si hay usuarios activos y elimina JSON temporal. No
+	restablecer usuarios existentes, duplicarlos ni cambiar el cifrado compatible.
+- Windows PowerShell5.1 Installer/test.ps1 -VerifyPayload aprobado: diez
+	selecciones, limpieza aislada, tres recorridos conjuntos (poblada, nueva,
+	existente vacia), SHA256 de base poblada intacto, JSON de credenciales borrado.
+	API temporal arranca contra la base existente vacia provisionada y autentica
+	el usuario sintetico. Tareas/procesos/firewall de pruebas simulados.
+- Estado observado en esta revision: PID58244 escucha 0.0.0.0:5197, padre
+	PowerShell PID42380. Consulta no encontro tarea CarWashApi registrada; ruta
+	del ejecutable no visible desde la sesion actual. No afirmar que esa instancia
+	este gestionada por tarea/servicio ni confundirla con IIS. No se detuvo,
+	reinicio ni reconfiguro el proceso; los instaladores registran la tarea en
+	su instalacion real y ese ciclo sigue pendiente de verificacion externa.
+- Inno Setup compilo
+	../CarWash/Installer/output/CarWash-Setup-x64-1.0.3.exe,
+	142305563 bytes, SHA256
+	`3EF70EA6638007031A1359D465F4826DC1B821ECB33176B19938E3F4C98E5E9C`.
+	Hosting permanece Kestrel/run-api.ps1, tarea CarWashApi en Programador de
+	tareas, SYSTEM/al iniciar, puerto5197. No se agrega IIS ni Windows Service.

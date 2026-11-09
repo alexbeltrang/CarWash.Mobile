@@ -3,6 +3,11 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
+if (args.Length == 2 && args[0] == "--backup")
+{
+    return DatabaseBackup.Run(args[1]);
+}
+
 if (args.Length == 3 && args[0] == "--create-schema")
 {
     var created = false;
@@ -155,3 +160,140 @@ static void Execute(SqliteConnection connection, SqliteTransaction transaction, 
 }
 
 record Credentials(string Usuario, string Clave);
+
+static class DatabaseBackup
+{
+    public static int Run(string configurationPath)
+    {
+        string? pending = null;
+        string? directory = null;
+        DateTime? lastSuccess = null;
+        FileStream? exclusive = null;
+        try
+        {
+            var settings = JsonSerializer.Deserialize<BackupSettings>(File.ReadAllText(configurationPath))
+                ?? throw new InvalidOperationException();
+            directory = Path.GetFullPath(settings.BackupDirectory);
+            var database = Path.GetFullPath(settings.DatabasePath);
+            var installation = Path.GetFullPath(settings.InstallDir);
+            if (!Path.IsPathFullyQualified(settings.BackupDirectory) || !Path.IsPathFullyQualified(settings.DatabasePath) ||
+                directory.TrimEnd('\\') == Path.GetPathRoot(directory)?.TrimEnd('\\') ||
+                IsWithin(directory, installation) || IsWithin(directory, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "SplashCar")) ||
+                directory.Contains("\\AppData\\Local\\CarWash", StringComparison.OrdinalIgnoreCase) ||
+                directory.Contains("\\AppData\\Roaming\\CarWash", StringComparison.OrdinalIgnoreCase) || IsWithin(database, directory))
+                throw new InvalidOperationException();
+            CheckPath(directory);
+            CheckPath(database);
+            Directory.CreateDirectory(directory);
+            exclusive = new FileStream(Path.Combine(directory, "CarWash-backup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            var statusPath = Path.Combine(directory, "backup-status.json");
+            if (File.Exists(statusPath))
+            {
+                try { lastSuccess = JsonSerializer.Deserialize<BackupStatus>(File.ReadAllText(statusPath))?.LastSuccessUtc; }
+                catch (JsonException) { }
+            }
+            var timestamp = DateTime.UtcNow;
+            var name = "CarWash-" + timestamp.ToString("yyyyMMdd-HHmmss-fffffff") + "-" + Guid.NewGuid().ToString("N");
+            pending = Path.Combine(directory, ".pending-" + name);
+            Directory.CreateDirectory(pending);
+            var snapshot = Path.Combine(pending, "CarWash.db");
+            using (var source = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Mode = SqliteOpenMode.ReadOnly, Pooling = false, DefaultTimeout = 30 }.ToString()))
+            using (var destination = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = snapshot, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false }.ToString()))
+            {
+                source.Open();
+                destination.Open();
+                source.BackupDatabase(destination);
+                using var integrity = destination.CreateCommand();
+                integrity.CommandText = "PRAGMA integrity_check";
+                if (!string.Equals(Convert.ToString(integrity.ExecuteScalar()), "ok", StringComparison.Ordinal))
+                    throw new InvalidOperationException();
+            }
+            var files = new Dictionary<string, string> { ["CarWash.db"] = Hash(snapshot) };
+            foreach (var sourceFile in settings.ConfigFiles)
+            {
+                CheckPath(sourceFile);
+                if (!File.Exists(sourceFile)) continue;
+                var target = "config-" + files.Count + "-" + Path.GetFileName(sourceFile);
+                File.Copy(sourceFile, Path.Combine(pending, target));
+                files[target] = Hash(Path.Combine(pending, target));
+            }
+            File.WriteAllText(Path.Combine(pending, "backup.json"), JsonSerializer.Serialize(new BackupManifest(installation, timestamp, files)));
+            Directory.Move(pending, Path.Combine(directory, name));
+            pending = null;
+            Prune(directory, installation);
+            File.WriteAllText(statusPath, JsonSerializer.Serialize(new BackupStatus(true, timestamp, timestamp)));
+            Console.WriteLine("Respaldo verificado: " + name);
+            return 0;
+        }
+        catch
+        {
+            if (exclusive != null && directory != null && Directory.Exists(directory))
+            {
+                try { File.WriteAllText(Path.Combine(directory, "backup-status.json"), JsonSerializer.Serialize(new BackupStatus(false, DateTime.UtcNow, lastSuccess))); }
+                catch { }
+            }
+            Console.Error.WriteLine("No se pudo completar el respaldo. Revise permisos, espacio disponible y estado de la base.");
+            return 1;
+        }
+        finally
+        {
+            if (pending != null && Directory.Exists(pending))
+            {
+                try { CheckTree(pending); Directory.Delete(pending, true); }
+                catch { }
+            }
+            exclusive?.Dispose();
+        }
+    }
+
+    static void Prune(string directory, string installation)
+    {
+        var backups = new List<(string Path, BackupManifest Manifest)>();
+        foreach (var path in Directory.EnumerateDirectories(directory, "CarWash-*"))
+        {
+            CheckTree(path);
+            var marker = Path.Combine(path, "backup.json");
+            if (!File.Exists(marker)) continue;
+            var manifest = JsonSerializer.Deserialize<BackupManifest>(File.ReadAllText(marker));
+            if (manifest != null && string.Equals(manifest.InstallDir, installation, StringComparison.OrdinalIgnoreCase))
+                backups.Add((path, manifest));
+        }
+        var ordered = backups.OrderByDescending(item => item.Manifest.CreatedUtc).ToArray();
+        var keep = ordered.Take(24)
+            .Concat(ordered.GroupBy(item => item.Manifest.CreatedUtc.Date).Take(7).Select(group => group.First()))
+            .Concat(ordered.GroupBy(item => (System.Globalization.ISOWeek.GetYear(item.Manifest.CreatedUtc), System.Globalization.ISOWeek.GetWeekOfYear(item.Manifest.CreatedUtc)))
+                .Take(4).Select(group => group.First()))
+            .Select(item => item.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in ordered.Where(item => !keep.Contains(item.Path))) Directory.Delete(item.Path, true);
+    }
+
+    static bool IsWithin(string path, string parent) => string.Equals(path.TrimEnd(Path.DirectorySeparatorChar), parent.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(parent.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    static string Hash(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    static void CheckPath(string path)
+    {
+        for (var current = Path.GetFullPath(path); current != null; current = Path.GetDirectoryName(current))
+            if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException();
+    }
+
+    static void CheckTree(string path)
+    {
+        CheckPath(path);
+        foreach (var child in Directory.EnumerateFileSystemEntries(path))
+        {
+            CheckPath(child);
+            if (Directory.Exists(child)) CheckTree(child);
+        }
+    }
+
+    record BackupSettings(string InstallDir, string DatabasePath, string BackupDirectory, string[] ConfigFiles);
+    record BackupManifest(string InstallDir, DateTime CreatedUtc, Dictionary<string, string> Files);
+    record BackupStatus(bool Success, DateTime AttemptUtc, DateTime? LastSuccessUtc);
+}

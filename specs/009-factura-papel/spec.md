@@ -139,7 +139,7 @@ nombre/domicilio largos y datos antiguos sin factura.
   durante instalacion sin clave predeterminada. Rechazar creacion si ya existe
   base; API sin base nueva exige base existente compatible. Escritorio solo
   solicita URL de API externa. Configuracion y datos existentes se conservan
-  al actualizar/desinstalar. No instalar componentes reales en el equipo de
+  al actualizar. No instalar componentes reales en el equipo de
   desarrollo como parte de las pruebas; documentar limites de maquina limpia.
   En instalaciones nuevas, archivo local heredado del escritorio en
   %LOCALAPPDATA%/CarWash, separado de la base API y sin requerir administrador
@@ -148,6 +148,35 @@ nombre/domicilio largos y datos antiguos sin factura.
   lectura (integridad SQLite y tablas principales), sin importar registros ni
   ejecutar migraciones destructivas. Crear directorio de logs del lanzador
   tambien cuando se elija una ruta personalizada para la base.
+  Verificar configuracion final conjunta de escritorio y API con base existente
+  y nueva en Windows PowerShell, ademas de las selecciones individuales.
+- **FR-019**: Desinstalar completamente CarWash con confirmacion explicita de
+  borrado permanente: detener procesos propios, retirar tarea/firewall propios,
+  configuraciones, logs, base API y sus archivos auxiliares, datos locales de
+  escritorio y carpetas instaladas. API externa no se modifica al desinstalar
+  solo escritorio. Una base en ruta personalizada se elimina como archivo,
+  nunca se borra recursivamente su carpeta compartida. No eliminar datos de
+  otras aplicaciones/instalaciones, seguir enlaces de directorios ni retirar
+  runtimes Microsoft compartidos. Probar limpieza en temporales con operaciones
+  del sistema simuladas, sin ejecutar borrado en la instalacion operativa.
+- **FR-020**: Reutilizar el sembrador del instalador API existente tambien al
+  seleccionar una base compatible ya creada pero sin usuarios activos. Mostrar
+  usuario/contrasena inicial al seleccionar API; no incorporar clave fija.
+  Crear solo si no existen usuarios activos, conservar usuarios/datos existentes
+  y eliminar el archivo temporal de credenciales. Mantener hosting Kestrel con
+  tarea de inicio CarWashApi como el instalador original; no requiere IIS.
+- **FR-021**: Al instalar API elegir carpeta local de respaldos externa a la
+  instalacion y a ProgramData/SplashCar/AppData CarWash. Registrar tarea SYSTEM
+  CarWashBackup cada hora, sin solapar ejecuciones, usando SQLite BackupDatabase
+  en linea sin detener API ni copiar directamente una base abierta. Verificar
+  integridad y SHA256 antes de publicar la copia; incluir configuracion necesaria
+  de API/correo/impresion si existe. Proteger destino para SYSTEM/Administradores.
+  Retener 24 copias recientes, 7 representantes diarios y 4 semanales, sin borrar
+  archivos ajenos. Registrar ultimo resultado/ultimo exito y codigo de error.
+  Retirar tarea de respaldo propia al actualizar/desinstalar, conservando copias
+  externas. No configurar nube, credenciales remotas ni cifrado sin datos reales.
+  Probar restauracion y respaldo con SQLite temporal abierto en WAL; no ejecutar
+  respaldos ni registrar tareas reales sobre produccion durante las pruebas.
 
 ### Key Entities
 
