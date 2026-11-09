@@ -64,3 +64,36 @@ se escribe editor; se ejecuta secuencialmente en esta sesion para mantener valid
 - [X] T018 Obtener esquema actual en solo lectura y entregar script SQLite sin datos en docs/database/carwash-sqlite.sql.
 - [X] T019 Entregar script equivalente SQL Server con tipos/identidades/indices compatibles en docs/database/carwash-sqlserver.sql.
 - [X] T020 Verificar SQLite temporal y SQL Server temporal (30 tablas/27 indices), rechazo de base existente y documentar uso/limitaciones sin tocar produccion en docs/database/README.md.
+
+## Phase 9: Estilo Y Menu Escritorio
+
+- [X] T021 Reutilizar estilo de Apertura/Cierre caja en Empresa, Configuracion facturacion, Facturas, Retiro y Reporte diario mediante UIHelper.
+- [X] T022 Agrupar opciones nuevas en Administracion conservando permisos existentes.
+- [X] T023 Compilar y probar formularios/menus con API aislada, capturas y tamanos reducidos; 20 pruebas enfocadas aprobadas y capturas minimas inspeccionadas.
+- [X] T024 Actualizar escritorio con nueva autorizacion y respaldo before-estilo-caja-20261109-105129; PID12484 responde, configuracion/API conservadas y celular sin cambios.
+
+## Phase 10: Disenador WinForms
+
+- [X] T025 Convertir cinco formularios a partial/Designer.cs/resx; controles/estilo declarativos y eventos separados sin API en diseno.
+- [X] T026 Declarar entradas nuevas del menu principal en Designer.cs y eliminar iconos de opciones.
+- [X] T027 Compilar y probar carga de diseno, edicion/serializacion, aspecto, menus/permisos y operaciones aisladas; 20 ejecutadas/20 aprobadas.
+- [X] T028 Actualizar escritorio con nueva aprobacion del usuario y respaldo before-disenador-x64-20261109-120330, sin reiniciar API ni cambiar celular; completado junto con T031.
+
+## Phase 11: Barras Y Compilacion SQLite
+
+- [X] T029 Eliminar barras duplicadas de Facturas/Reporte diario y probar una barra nativa por eje y desplazamiento de filas.
+- [X] T030 Corregir arquitectura x64 y copia nativa en proyecto/solucion; cuatro compilaciones Debug/Release sin parametros Platform/RID y ejecutable/SQLite AMD64 verificados.
+- [X] T031 Reemplazar escritorio con autorizacion del usuario 2026-11-09 y respaldo; 18 archivos verificados, appSettings conservados, PID61936 respondio y luego se cerro sin fallos recientes registrados; API29316 sin reinicio y sin datos operativos de prueba.
+
+## Phase 12: Carga Del Disenador x64
+
+- [X] T032 Activar UseWinFormsOutOfProcDesigner para .NET Framework x64 sin cambiar formularios editados por el usuario.
+- [X] T033 Verificar propiedad activa, resolucion de referencias de diseno y solucion Debug con MSBuild de Visual Studio Professional18.8; FxDesignToolsServer x64 instalado. Apertura manual pendiente de recargar proyecto en Visual Studio.
+
+## Phase 13: Instalador Seleccionable
+
+- [X] T034 Integrar proyecto generador y compilacion aislada de escritorio/API; proyecto Release genera setup y solucion Debug no empaqueta.
+- [X] T035 Incluir runtime offline verificado y esquema sin datos reales; firmas Microsoft y manifiesto SHA256 comprobados.
+- [X] T036 Agregar seleccion escritorio/API/base nueva, configuracion y usuario sin clave predeterminada; rechazar base incompatible en solo lectura.
+- [X] T037 Probar paquete, seleccion/configuracion/base en temporal y documentar alcance pendiente en Windows limpio; API autocontenida autentica administrador sintetico y probe compilado aprobado.
+- [ ] T038 [Validacion externa] Instalar/actualizar/desinstalar en VM Windows limpia con UAC y reinicio; comprobar tarea SYSTEM, firewall, permisos y conservacion de datos. No ejecutar sobre produccion como prueba.

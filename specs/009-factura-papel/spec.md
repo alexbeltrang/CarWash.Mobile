@@ -107,6 +107,47 @@ nombre/domicilio largos y datos antiguos sin factura.
   Sin copiar registros, usuarios, secretos ni configuracion fiscal. SQLite se
   verifica en base temporal; SQL Server no implica migrar ni cambiar el proveedor
   SQLite de la API. Documentar requisitos y limites de verificacion del servidor.
+- **FR-014**: Formularios nuevos de escritorio (Empresa, Configuracion de
+  facturacion, Facturas, Comprobante y retiro, Reporte diario) usan el estilo de
+  Apertura/Cierre de caja: encabezado azul, fondo claro, Segoe UI y botones planos
+  verde/azul, con cierre accesible y contenido sin solaparse al redimensionar.
+  Sus opciones se agrupan en Administracion, conservando permisos existentes;
+  mover una opcion no otorga permisos administrativos ni modifica operaciones.
+- **FR-015**: Formularios nuevos editables en el disenador WinForms mediante
+  clases parciales, InitializeComponent, Designer.cs y resx registrados en el
+  proyecto. Declarar controles, contenedores y estilo en Designer.cs, no construir
+  ni reordenar su estructura desde constructores/helpers. Conservar eventos,
+  validaciones y permisos; no consultar API al abrir en modo diseno. Opciones
+  nuevas del menu tambien declaradas en disenador y sin iconos a la izquierda.
+  Para el proyecto .NET Framework x64, activar el disenador WinForms fuera de
+  proceso en Visual Studio; conservar x64 de ejecucion y referencias del framework.
+- **FR-016**: Tablas WinForms usan sus barras de desplazamiento nativas, sin
+  duplicarlas como controles independientes en Designer.cs. Compilar proyecto y
+  solucion sin argumentos de arquitectura adicionales debe seleccionar binario
+  x64 y bibliotecas SQLite nativas compatibles, tanto en Debug como Release.
+
+### Instalador Seleccionable De Escritorio
+
+- **FR-017**: Proyecto generador de instalador en la solucion CarWash para
+  Windows10 22H2/Windows11 x64, con seleccion independiente de escritorio y API
+  local; base nueva disponible solo junto a API. Incluir .NET Framework4.8.1,
+  redistribuible Visual C++ x64 firmado por Microsoft,
+  DLL administradas/SQLite x64 y API autocontenida para instalacion sin Internet,
+  Visual Studio ni SDK en destino. Solicitar elevacion solo al instalar.
+- **FR-018**: No copiar bases, usuarios, SMTP, tokens ni configuracion de produccion.
+  Base nueva vacia desde esquema versionado, usuario administrador elegido
+  durante instalacion sin clave predeterminada. Rechazar creacion si ya existe
+  base; API sin base nueva exige base existente compatible. Escritorio solo
+  solicita URL de API externa. Configuracion y datos existentes se conservan
+  al actualizar/desinstalar. No instalar componentes reales en el equipo de
+  desarrollo como parte de las pruebas; documentar limites de maquina limpia.
+  En instalaciones nuevas, archivo local heredado del escritorio en
+  %LOCALAPPDATA%/CarWash, separado de la base API y sin requerir administrador
+  para ejecutar el cliente. Expandir variables de NameLDB, conservando rutas
+  existentes cuando no contienen variables. Verificar base existente en solo
+  lectura (integridad SQLite y tablas principales), sin importar registros ni
+  ejecutar migraciones destructivas. Crear directorio de logs del lanzador
+  tambien cuando se elija una ruta personalizada para la base.
 
 ### Key Entities
 

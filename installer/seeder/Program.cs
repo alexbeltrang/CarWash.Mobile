@@ -3,10 +3,47 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
+if (args.Length == 3 && args[0] == "--create-schema")
+{
+    var created = false;
+    try
+    {
+        var sql = File.ReadAllText(args[2]);
+        using (new FileStream(args[1], FileMode.CreateNew, FileAccess.Write)) { }
+        created = true;
+        using (var schema = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = args[1], Mode = SqliteOpenMode.ReadWrite, Pooling = false }.ToString()))
+        {
+            schema.Open();
+            using var command = schema.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+        }
+        VerifyEmpty(args[1]);
+        Console.WriteLine("Esquema creado sin registros.");
+        return 0;
+    }
+    catch (Exception failure)
+    {
+        if (created) File.Delete(args[1]);
+        Console.Error.WriteLine(failure.Message);
+        return 1;
+    }
+}
+if (args.Length == 2 && args[0] == "--verify-empty")
+{
+    try { VerifyEmpty(args[1]); Console.WriteLine("Base vacia verificada."); return 0; }
+    catch (Exception failure) { Console.Error.WriteLine(failure.Message); return 1; }
+}
+if (args.Length == 2 && args[0] == "--verify-schema")
+{
+    try { VerifyCompatible(args[1]); Console.WriteLine("Base compatible verificada."); return 0; }
+    catch (Exception failure) { Console.Error.WriteLine(failure.Message); return 1; }
+}
+
 // Uso: CarWashSeeder <ruta-db> <archivo-credenciales.json>
 // El JSON ({"Usuario":"..","Clave":".."}) se borra al terminar para no dejar la clave en disco.
 // Crea el perfil Administrador y el usuario inicial solo si la base no tiene usuarios activos.
-if (args.Length != 2)
+if (args.Length != 2 || args[0].StartsWith("--", StringComparison.Ordinal))
 {
     Console.Error.WriteLine("Uso: CarWashSeeder <ruta-db> <archivo-credenciales.json>");
     return 2;
@@ -55,6 +92,35 @@ catch (Exception failure)
 finally
 {
     try { File.Delete(credentialsPath); } catch (IOException) { }
+}
+
+static void VerifyCompatible(string path)
+{
+    using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString());
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = "PRAGMA quick_check";
+    if (Convert.ToString(command.ExecuteScalar()) != "ok") throw new InvalidOperationException("La base no supera quick_check.");
+    if (Scalar(connection, "SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table' AND name IN ('Usuarios','Perfiles','Turnos','TurnoServicios','Servicios','TipoVehiculo')") != 6)
+        throw new InvalidOperationException("La base no contiene las tablas CarWash requeridas.");
+}
+
+static void VerifyEmpty(string path)
+{
+    VerifyCompatible(path);
+    using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString());
+    connection.Open();
+    var tables = new List<string>();
+    using (var command = connection.CreateCommand())
+    {
+        command.CommandText = "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%'";
+        using var reader = command.ExecuteReader();
+        while (reader.Read()) tables.Add(reader.GetString(0));
+    }
+    if (tables.Count == 0) throw new InvalidOperationException("El esquema no contiene tablas.");
+    foreach (var table in tables)
+        if (Scalar(connection, "SELECT COUNT(*) FROM \"" + table.Replace("\"", "\"\"") + "\"") != 0)
+            throw new InvalidOperationException("La base contiene registros; no se puede empaquetar.");
 }
 
 static bool IsValid(string? value) =>
