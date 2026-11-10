@@ -197,6 +197,32 @@ API PID29316 sin reiniciar y DLL sin cambiar; Swagger local HTTP200.
 	ni API, datos, paquetes o aplicacion instalada. No repetir las 20 pruebas de
 	facturacion previas como evidencia nueva de este cambio de configuracion.
 
+## Retencion De Respaldos 1.1.1 (2026-11-10)
+
+Reemplaza la regla24/7/4 de1.1.0: conservar todas las copias del dia actual y
+solo la ultima de cada uno de los 30 dias calendario anteriores, por hora
+local del equipo. Dias sin copias no extienden el plazo; sin copias semanales
+extra. Depurar propias anteriores/duplicadas solo tras publicar copia valida.
+Actualizar el instalador/motor para que la siguiente ejecucion exitosa aplique
+la regla a los respaldos propios existentes. No se ha limpiado produccion.
+
+Prueba ScheduledBackupRestoresLiveWalDatabaseAndPreservesForeignFiles aprobada:
+una ejecutada, cero fallos/omitidas; TRX
+`%TEMP%/CarWash.Backup.TestResults/backup-retention30.trx`.
+Incluye dos copias por dia durante45 dias a00:01/23:59 locales, tres copias de
+hoy y respaldos WAL reales; verifica conservar la ultima de dias1-30 y borrar
+ambas de dias31-45, conservar todas las de hoy y archivos ajenos.
+No sustituir esto por una prueba de borrado sobre carpetas operativas.
+
+Inno compilo ../CarWash/Installer/output/CarWash-Setup-x64-1.1.1.exe,
+142302009 bytes, SHA256
+`01B338D8AA8B1DBBF1D35A9449DDE7B50FAABA189F3400B1BB9D931E01CE3761`.
+Misma prueba contra motor Release autocontenido: una aprobada, cero fallos ni
+omitidas; TRX `%TEMP%/CarWash.Backup.TestResults/backup-retention30-packaged.trx`.
+Windows PowerShell5.1 Installer/test.ps1 -VerifyPayload aprobado, con tareas,
+firewall y operaciones de sistema simulados. Sin instalacion ni limpieza real;
+UAC/registro SYSTEM/ACL/reinicio siguen pendientes en T038.
+
 ## Instalador Seleccionable 2026-11-09
 
 Actualizacion 1.1.0: el asistente API agrega carpeta de respaldo local dedicada

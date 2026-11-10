@@ -220,7 +220,7 @@ static class DatabaseBackup
             File.WriteAllText(Path.Combine(pending, "backup.json"), JsonSerializer.Serialize(new BackupManifest(installation, timestamp, files)));
             Directory.Move(pending, Path.Combine(directory, name));
             pending = null;
-            Prune(directory, installation);
+            Prune(directory, installation, timestamp);
             File.WriteAllText(statusPath, JsonSerializer.Serialize(new BackupStatus(true, timestamp, timestamp)));
             Console.WriteLine("Respaldo verificado: " + name);
             return 0;
@@ -246,7 +246,7 @@ static class DatabaseBackup
         }
     }
 
-    static void Prune(string directory, string installation)
+    static void Prune(string directory, string installation, DateTime timestamp)
     {
         var backups = new List<(string Path, BackupManifest Manifest)>();
         foreach (var path in Directory.EnumerateDirectories(directory, "CarWash-*"))
@@ -258,11 +258,13 @@ static class DatabaseBackup
             if (manifest != null && string.Equals(manifest.InstallDir, installation, StringComparison.OrdinalIgnoreCase))
                 backups.Add((path, manifest));
         }
-        var ordered = backups.OrderByDescending(item => item.Manifest.CreatedUtc).ToArray();
-        var keep = ordered.Take(24)
-            .Concat(ordered.GroupBy(item => item.Manifest.CreatedUtc.Date).Take(7).Select(group => group.First()))
-            .Concat(ordered.GroupBy(item => (System.Globalization.ISOWeek.GetYear(item.Manifest.CreatedUtc), System.Globalization.ISOWeek.GetWeekOfYear(item.Manifest.CreatedUtc)))
-                .Take(4).Select(group => group.First()))
+        var today = timestamp.ToLocalTime().Date;
+        var oldestDay = today.AddDays(-30);
+        var ordered = backups.OrderByDescending(item => item.Manifest.CreatedUtc)
+            .Select(item => (item.Path, Day: item.Manifest.CreatedUtc.ToLocalTime().Date)).ToArray();
+        var keep = ordered.Where(item => item.Day == today)
+            .Concat(ordered.Where(item => item.Day >= oldestDay && item.Day < today)
+                .GroupBy(item => item.Day).Select(group => group.First()))
             .Select(item => item.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var item in ordered.Where(item => !keep.Contains(item.Path))) Directory.Delete(item.Path, true);
     }

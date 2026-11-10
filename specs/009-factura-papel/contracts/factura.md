@@ -163,8 +163,12 @@ Motor SQLite BackupDatabase ReadOnly sobre fuente existente, destino temporal,
 integrity_check y SHA256 antes de publicar por renombrado. Carpeta publicada
 CarWash-<fecha UTC>-<identificador> contiene CarWash.db, configuraciones API,
 correo e impresion existentes y backup.json con InstallDir, CreatedUtc y Files
-(nombre a SHA256). No incluir binarios. Retencion por union de 24 mas recientes,
-7 dias distintos y 4 semanas ISO distintas, solo marcadores de esta instalacion.
+(nombre a SHA256). No incluir binarios. Desde1.1.1 retener todas las copias del
+dia local actual y la ultima por CreatedUtc de cada uno de los 30 dias calendario
+anteriores; no extender el plazo por dias sin copias ni conservar semanales.
+Calcular fechas locales desde CreatedUtc, incluidos limites cerca de medianoche.
+Depurar solo marcadores de esta instalacion tras publicar un respaldo valido,
+incluyendo copias propias anteriores a la actualizacion; nunca antes de validar.
 No borrar carpetas ajenas. Fallos devuelven 1 y exito 0; backup-status.json
 incluye Success, AttemptUtc y LastSuccessUtc. Estado JSON truncado no impide
 respaldos futuros. Sin alertas remotas, nube ni cifrado adicional automaticos.

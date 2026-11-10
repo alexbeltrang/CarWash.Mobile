@@ -171,8 +171,12 @@ nombre/domicilio largos y datos antiguos sin factura.
   en linea sin detener API ni copiar directamente una base abierta. Verificar
   integridad y SHA256 antes de publicar la copia; incluir configuracion necesaria
   de API/correo/impresion si existe. Proteger destino para SYSTEM/Administradores.
-  Retener 24 copias recientes, 7 representantes diarios y 4 semanales, sin borrar
-  archivos ajenos. Registrar ultimo resultado/ultimo exito y codigo de error.
+  Retener todas las copias del dia actual y solo la ultima de cada uno de los
+  30 dias calendario anteriores, segun hora local del equipo. Eliminar copias
+  propias mas antiguas y duplicadas de dias anteriores solo despues de publicar
+  un respaldo valido; no borrar archivos ajenos. No mantener copias semanales
+  adicionales ni acumular una copia diaria indefinidamente.
+  Registrar ultimo resultado/ultimo exito y codigo de error.
   Retirar tarea de respaldo propia al actualizar/desinstalar, conservando copias
   externas. No configurar nube, credenciales remotas ni cifrado sin datos reales.
   Probar restauracion y respaldo con SQLite temporal abierto en WAL; no ejecutar
